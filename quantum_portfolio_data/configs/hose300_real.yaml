@@ -1,0 +1,45 @@
+mode: research
+label: "HOSE300 REAL DATA 2020-2025 — WALK-FORWARD AI-QUANTUM PIPELINE"
+seed: 42
+data:
+  source: finance_datareader_yahoo_hose
+  start: "2020-01-01"
+  end: "2025-12-31"
+  rebalance: monthly
+walk_forward:
+  train_months: 24
+  validation_months: 3
+  test_months: 1
+  max_folds: 12
+model:
+  kind: xgboost
+  n_estimators: 180
+  max_depth: 4
+  learning_rate: 0.035
+reduction:
+  qubit_budget: 8
+  candidate_size: 8
+  cardinality: 4
+  signal_weight: 0.55
+  liquidity_weight: 0.20
+  risk_weight: 0.15
+  correlation_penalty: 0.10
+qubo:
+  risk_aversion: 0.55
+covariance:
+  method: ewma
+  span: 60
+  horizon_days: 20
+solver:
+  qaoa_depth: 2
+  shots: 2048
+  seeds: [11, 23, 47, 59, 71]
+  parameter_trials: 60
+weights:
+  lower: 0.0
+  upper: 0.40
+  risk_aversion: 1.0
+  turnover_penalty: 0.001
+backtest:
+  transaction_cost_bps: 10
+  risk_free_annual: 0.03

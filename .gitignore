@@ -1,0 +1,35 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*cookie*
+vietstock_request.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Generated data, models and experiment artifacts
+quantum_portfolio_data/outputs/
+quantum_portfolio_data/data/
+quantum_portfolio_data/artifacts/
+*.parquet
+*.joblib
+*.pkl
+
+# Temporary extraction and local agent state
+tmp/
+.agents/
+
+# Editors and operating system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

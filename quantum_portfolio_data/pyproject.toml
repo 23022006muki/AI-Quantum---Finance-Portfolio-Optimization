@@ -1,0 +1,26 @@
+[project]
+name = "quantum-portfolio-data"
+version = "0.1.0"
+description = "Point-in-time AI and feasible-subspace QAOA portfolio research pipeline"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy",
+  "pandas",
+  "pyarrow",
+  "scikit-learn",
+  "scipy",
+  "xgboost",
+  "matplotlib",
+  "PyYAML",
+  "requests",
+  "vnstock>=4.0.5",
+  "finance-datareader>=0.9.202",
+  "pip-system-certs>=5.3",
+  "streamlit",
+]
+
+[project.scripts]
+quantum-portfolio = "src.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

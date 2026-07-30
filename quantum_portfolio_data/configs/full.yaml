@@ -1,0 +1,45 @@
+mode: research
+label: "REQUIRES VERIFIED REAL POINT-IN-TIME DATA"
+seed: 42
+data:
+  source: configured
+  start: "2015-01-01"
+  end: "2025-12-31"
+  rebalance: monthly
+walk_forward:
+  train_months: 36
+  validation_months: 6
+  test_months: 1
+  max_folds: null
+model:
+  kind: xgboost
+  n_estimators: 300
+  max_depth: 4
+  learning_rate: 0.03
+reduction:
+  qubit_budget: 12
+  candidate_size: 12
+  cardinality: 5
+  signal_weight: 0.55
+  liquidity_weight: 0.20
+  risk_weight: 0.15
+  correlation_penalty: 0.10
+qubo:
+  risk_aversion: 0.55
+covariance:
+  method: ewma
+  span: 60
+  horizon_days: 20
+solver:
+  qaoa_depth: 2
+  shots: 4096
+  seeds: [11, 23, 47, 59, 71]
+  parameter_trials: 100
+weights:
+  lower: 0.0
+  upper: 0.35
+  risk_aversion: 1.0
+  turnover_penalty: 0.001
+backtest:
+  transaction_cost_bps: 10
+  risk_free_annual: 0.03
