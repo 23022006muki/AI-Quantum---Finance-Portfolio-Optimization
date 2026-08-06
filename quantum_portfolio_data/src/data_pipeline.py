@@ -13,7 +13,7 @@ import pandas as pd
 PRICE_COLUMNS = [
     "date", "ticker", "open", "high", "low", "close", "adjusted_close", "volume",
     "trading_value", "source", "source_url", "fetched_at", "available_at",
-    "raw_checksum", "parser_version", "data_class",
+    "raw_checksum", "parser_version", "data_class", "adjustment_policy",
 ]
 
 PROVENANCE_COLUMNS = {"source", "source_url", "fetched_at", "raw_checksum"}
@@ -28,6 +28,7 @@ VERIFIED_ADJUSTMENT_POLICIES = {
     "unadjusted_with_verified_actions_join",
     "fixture",
 }
+UNIVERSE_DEFINITIONS = {"hose_all_listed", "index_membership"}
 
 
 def sha256_file(path: Path) -> str:
@@ -61,6 +62,73 @@ class Paths:
     def ensure(self) -> None:
         for p in (self.raw, self.normalized, self.curated, self.reports):
             p.mkdir(parents=True, exist_ok=True)
+
+
+def quarantine_fixture_auxiliary(paths: Paths) -> list[str]:
+    """Move stale fixture-only auxiliary tables out of a real-data workspace."""
+    names = ["index_membership", "corporate_actions", "financial_statements", "macro", "foreign_flow"]
+    fixture_paths: list[Path] = []
+    for name in names:
+        path = paths.normalized / f"{name}.parquet"
+        if not path.exists():
+            continue
+        table = pd.read_parquet(path)
+        if table.empty:
+            continue
+        fixture = bool(
+            ("data_class" in table and table["data_class"].astype(str).eq("fixture").all())
+            or ("source" in table and table["source"].astype(str).str.contains(
+                "fixture", case=False, na=False
+            ).all())
+        )
+        if fixture:
+            fixture_paths.append(path)
+    if not fixture_paths:
+        return []
+    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    destination = paths.root / "outputs" / "quarantine" / "fixture_auxiliary" / stamp
+    destination.mkdir(parents=True, exist_ok=False)
+    moved = []
+    for path in fixture_paths:
+        target = destination / path.name
+        path.replace(target)
+        moved.append(str(target))
+    return moved
+
+
+def apply_price_adjustment_contract(paths: Paths, contract_path: Path) -> dict:
+    """Apply a documented adjustment policy only to the exact certified price panel."""
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    required = {
+        "price_dataset_sha256", "adjustment_policy", "source", "source_url",
+        "methodology", "certified_by", "certified_at",
+    }
+    missing = sorted(required - set(contract))
+    if missing:
+        raise ValueError(f"Price adjustment contract missing fields: {missing}")
+    if contract["adjustment_policy"] not in VERIFIED_ADJUSTMENT_POLICIES - {"fixture"}:
+        raise ValueError("The adjustment policy is not accepted for a real research run.")
+    prices_path = paths.normalized / "prices.parquet"
+    before_hash = sha256_file(prices_path)
+    if contract["price_dataset_sha256"] != before_hash:
+        raise ValueError(
+            "Price dataset hash does not match the contract; refusing to certify another panel."
+        )
+    prices = pd.read_parquet(prices_path)
+    if prices["data_class"].astype(str).eq("fixture").any():
+        raise ValueError("A real adjustment contract cannot certify fixture prices.")
+    prices["adjustment_policy"] = contract["adjustment_policy"]
+    prices.to_parquet(prices_path, index=False)
+    stored = {
+        **contract,
+        "contract_file_sha256": sha256_file(contract_path),
+        "input_price_dataset_sha256": before_hash,
+        "output_price_dataset_sha256": sha256_file(prices_path),
+        "applied_at": datetime.now(timezone.utc).isoformat(),
+    }
+    output = paths.normalized / "price_adjustment_contract.json"
+    output.write_text(json.dumps(stored, indent=2), encoding="utf-8")
+    return stored
 
 
 def generate_fixture(
@@ -123,6 +191,13 @@ def generate_fixture(
     prices["data_class"] = "fixture"
     prices["adjustment_policy"] = "fixture"
     prices.to_parquet(paths.normalized / "prices.parquet", index=False)
+    (paths.normalized / "price_adjustment_contract.json").write_text(json.dumps({
+        "adjustment_policy": "fixture",
+        "source": "deterministic_fixture", "source_url": "local://tests/fixture",
+        "methodology": "fixture prices require no corporate-action adjustment",
+        "certified_by": "fixture_generator", "certified_at": now,
+        "output_price_dataset_sha256": sha256_file(paths.normalized / "prices.parquet"),
+    }, indent=2), encoding="utf-8")
     master_df = pd.DataFrame(master)
     master_df["raw_checksum"] = checksum
     master_df.to_parquet(paths.normalized / "security_master.parquet", index=False)
@@ -197,6 +272,9 @@ def import_csv(paths: Paths, input_path: Path, source: str, source_url: str) -> 
     df["raw_checksum"] = checksum
     df["parser_version"] = "csv-v1"
     df["data_class"] = "real"
+    # Research mode accepts only an explicitly documented adjustment contract.
+    # A missing declaration remains usable for inspection but fails the research audit.
+    df["adjustment_policy"] = df.get("adjustment_policy", "unverified")
     df[PRICE_COLUMNS].to_parquet(paths.normalized / "prices.parquet", index=False)
     return {"records": len(df), "data_class": "real", "raw_checksum": checksum}
 
@@ -220,10 +298,55 @@ def validate_data(paths: Paths) -> tuple[dict, pd.DataFrame]:
     future = pd.to_datetime(prices["available_at"]) < pd.to_datetime(prices["date"])
     if future.any():
         issues.append({"severity": "error", "check": "available_before_observation", "count": int(future.sum())})
-    returns = prices.sort_values(["ticker", "date"]).groupby("ticker")["adjusted_close"].pct_change()
-    outliers = returns.abs() > 0.30
-    if outliers.any():
-        issues.append({"severity": "warning", "check": "return_outlier_flag", "count": int(outliers.sum())})
+    ordered = prices.sort_values(["ticker", "date"]).copy()
+    ordered["return_1d"] = ordered.groupby("ticker")["adjusted_close"].pct_change()
+    outlier_rows = ordered[ordered["return_1d"].abs() > 0.30].copy()
+    if not outlier_rows.empty:
+        actions_path = paths.normalized / "corporate_actions.parquet"
+        actions = pd.read_parquet(actions_path) if actions_path.exists() else pd.DataFrame()
+        if not actions.empty and {"ticker", "effective_date"} <= set(actions.columns):
+            actions["effective_date"] = pd.to_datetime(actions["effective_date"], errors="coerce")
+            action_dates = {
+                ticker: list(group["effective_date"].dropna())
+                for ticker, group in actions.groupby("ticker")
+            }
+            outlier_rows["corporate_action_match"] = [
+                any(abs((pd.Timestamp(date) - action_date).days) <= 3
+                    for action_date in action_dates.get(ticker, []))
+                for ticker, date in zip(outlier_rows["ticker"], outlier_rows["date"])
+            ]
+        else:
+            outlier_rows["corporate_action_match"] = False
+        contract_path = paths.normalized / "price_adjustment_contract.json"
+        contract = json.loads(contract_path.read_text(encoding="utf-8")) if contract_path.exists() else {}
+        contract_matches_dataset = bool(
+            contract.get("output_price_dataset_sha256") == sha256_file(
+                paths.normalized / "prices.parquet"
+            )
+        )
+        outlier_rows["adjustment_contract_verified"] = contract_matches_dataset & outlier_rows.get(
+            "adjustment_policy", pd.Series("unverified", index=outlier_rows.index)
+        ).astype(str).isin(VERIFIED_ADJUSTMENT_POLICIES)
+        outlier_rows["resolution"] = np.select(
+            [outlier_rows["corporate_action_match"], outlier_rows["adjustment_contract_verified"]],
+            ["matched_verified_corporate_action", "covered_by_verified_adjustment_contract"],
+            default="unresolved",
+        )
+        unresolved = int(outlier_rows["resolution"].eq("unresolved").sum())
+        issues.append({
+            "severity": "error" if unresolved else "warning",
+            "check": "unresolved_return_outlier" if unresolved else "return_outlier_reviewed",
+            "count": unresolved if unresolved else len(outlier_rows),
+        })
+    outlier_columns = [
+        "date", "ticker", "close", "adjusted_close", "return_1d",
+        "adjustment_policy", "corporate_action_match",
+        "adjustment_contract_verified", "resolution", "source", "source_url",
+    ]
+    paths.reports.mkdir(parents=True, exist_ok=True)
+    outlier_rows.reindex(columns=outlier_columns).to_csv(
+        paths.reports / "return_outlier_review.csv", index=False
+    )
     coverage = (
         prices.assign(year=pd.to_datetime(prices["date"]).dt.year)
         .groupby(["ticker", "year", "source", "data_class"], dropna=False)
@@ -239,13 +362,25 @@ def validate_data(paths: Paths) -> tuple[dict, pd.DataFrame]:
         "end": str(pd.to_datetime(prices["date"]).max().date()),
         "issues": issues,
     }
-    paths.reports.mkdir(parents=True, exist_ok=True)
     (paths.reports / "data_quality.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     coverage.to_csv(paths.reports / "coverage.csv", index=False)
     return report, coverage
 
 
-def build_universe(paths: Paths, rebalance: str = "monthly") -> pd.DataFrame:
+def build_universe(
+    paths: Paths,
+    rebalance: str = "monthly",
+    definition: str = "hose_all_listed",
+    index_code: str | None = None,
+) -> pd.DataFrame:
+    """Build auditable point-in-time snapshots for one declared universe definition.
+
+    ``hose_all_listed`` uses exchange listing/delisting event history from the security
+    master. ``index_membership`` uses effective membership intervals and therefore must
+    never be substituted for an all-HOSE study (or vice versa).
+    """
+    if definition not in UNIVERSE_DEFINITIONS:
+        raise ValueError(f"Unsupported universe definition: {definition}")
     prices = pd.read_parquet(paths.normalized / "prices.parquet")
     master = pd.read_parquet(paths.normalized / "security_master.parquet")
     prices["date"] = pd.to_datetime(prices["date"])
@@ -258,30 +393,61 @@ def build_universe(paths: Paths, rebalance: str = "monthly") -> pd.DataFrame:
         prices.set_index("date").groupby("ticker")["close"].resample("ME").last().dropna()
         .reset_index()["date"].drop_duplicates().sort_values()
     )
+    if definition == "index_membership":
+        membership_path = paths.normalized / "index_membership.parquet"
+        if not membership_path.exists():
+            raise ValueError("index_membership universe requires index_membership.parquet")
+        records = pd.read_parquet(membership_path).copy()
+        if index_code:
+            records = records[records["index_code"].astype(str) == str(index_code)]
+        if records.empty:
+            raise ValueError("No membership records match the requested index universe.")
+        for column in ["effective_from", "effective_to", "available_at"]:
+            records[column] = pd.to_datetime(records[column], errors="coerce")
+        reason = "index_member_and_available_point_in_time"
+    else:
+        records = master.copy()
+        reason = "listed_on_hose_and_available_point_in_time"
     rows = []
     for date in anchors:
-        for row in master.itertuples():
+        for row in records.itertuples():
+            start = row.effective_from
+            end = row.effective_to
+            available = row.available_at
+            if definition == "hose_all_listed":
+                start = max(row.listing_date, start)
+                ends = [value for value in (row.delisting_date, end) if pd.notna(value)]
+                end = min(ends) if ends else pd.NaT
             eligible = (
-                row.listing_date <= date
-                and row.effective_from <= date
-                and row.available_at <= date
-                and (pd.isna(row.delisting_date) or row.delisting_date >= date)
-                and (pd.isna(row.effective_to) or row.effective_to >= date)
+                pd.notna(start) and pd.notna(available)
+                and start <= date and available <= date
+                and (pd.isna(end) or end >= date)
             )
             if eligible:
-                rows.append({"decision_time": date, "ticker": row.ticker, "eligible": True,
-                             "reason": "listed_and_available_point_in_time",
-                             "data_class": row.data_class,
-                             "effective_from": row.effective_from,
-                             "effective_to": row.effective_to,
-                             "record_available_at": row.available_at,
-                             "source": row.source,
-                             "source_url": getattr(row, "source_url", None),
-                             "fetched_at": getattr(row, "fetched_at", None),
-                             "raw_checksum": getattr(row, "raw_checksum", None),
-                             "history_method": getattr(row, "history_method", None)})
+                rows.append({
+                    "decision_time": date, "ticker": row.ticker, "eligible": True,
+                    "reason": reason, "universe_definition": definition,
+                    "index_code": getattr(row, "index_code", None),
+                    "data_class": getattr(row, "data_class", "real"),
+                    "effective_from": start, "effective_to": end,
+                    "record_available_at": available, "source": row.source,
+                    "source_url": getattr(row, "source_url", None),
+                    "fetched_at": getattr(row, "fetched_at", None),
+                    "raw_checksum": getattr(row, "raw_checksum", None),
+                    "history_method": getattr(row, "history_method", None),
+                })
     universe = pd.DataFrame(rows)
+    if universe.empty:
+        raise ValueError("The declared point-in-time universe produced no eligible snapshots.")
+    paths.curated.mkdir(parents=True, exist_ok=True)
     universe.to_parquet(paths.curated / "universe_monthly.parquet", index=False)
+    (paths.curated / "universe_contract.json").write_text(json.dumps({
+        "definition": definition, "index_code": index_code, "rebalance": rebalance,
+        "snapshot_rows": len(universe), "tickers": int(universe["ticker"].nunique()),
+        "start": str(pd.to_datetime(universe["decision_time"]).min().date()),
+        "end": str(pd.to_datetime(universe["decision_time"]).max().date()),
+        "built_at": datetime.now(timezone.utc).isoformat(),
+    }, indent=2), encoding="utf-8")
     return universe
 
 
@@ -292,6 +458,12 @@ def leakage_audit(paths: Paths) -> dict:
     actions = pd.read_parquet(actions_path) if actions_path.exists() else pd.DataFrame()
     membership_path = paths.normalized / "index_membership.parquet"
     membership = pd.read_parquet(membership_path) if membership_path.exists() else pd.DataFrame()
+    universe_metadata_path = paths.curated / "universe_contract.json"
+    universe_metadata = (
+        json.loads(universe_metadata_path.read_text(encoding="utf-8"))
+        if universe_metadata_path.exists() else {}
+    )
+    universe_definition = universe_metadata.get("definition")
     auxiliary_names = [
         "index_membership", "corporate_actions", "financial_statements",
         "macro", "foreign_flow",
@@ -367,7 +539,32 @@ def leakage_audit(paths: Paths) -> dict:
     adjustment_policies = set(
         prices.get("adjustment_policy", pd.Series(dtype=str)).dropna().astype(str)
     )
+    adjustment_contract_path = paths.normalized / "price_adjustment_contract.json"
+    adjustment_contract = (
+        json.loads(adjustment_contract_path.read_text(encoding="utf-8"))
+        if adjustment_contract_path.exists() else {}
+    )
+    adjustment_contract_required = {
+        "adjustment_policy", "source", "source_url", "methodology", "certified_by",
+        "certified_at", "output_price_dataset_sha256",
+    }
+    adjustment_contract_valid = bool(
+        adjustment_contract
+        and adjustment_contract_required <= set(adjustment_contract)
+        and adjustment_contract.get("adjustment_policy") in adjustment_policies
+        and adjustment_contract.get("output_price_dataset_sha256")
+        == sha256_file(paths.normalized / "prices.parquet")
+    )
+    adjustment_verified = bool(
+        adjustment_policies
+        and adjustment_policies <= VERIFIED_ADJUSTMENT_POLICIES
+        and adjustment_contract_valid
+    )
+    actions_required = "unadjusted_with_verified_actions_join" in adjustment_policies
+    declared_universe_valid = universe_definition in UNIVERSE_DEFINITIONS
+    membership_required = universe_definition == "index_membership"
     checks = {
+        "universe_definition_declared": declared_universe_valid,
         "historical_universe_contract": master_has_contract,
         "historical_universe_source_trusted": trusted_history,
         "historical_universe_fixture_free": not master.get(
@@ -379,12 +576,16 @@ def leakage_audit(paths: Paths) -> dict:
         "universe_snapshot_source_trusted": bool(universe_methods)
         and universe_methods <= HISTORICAL_UNIVERSE_METHODS,
         "universe_snapshot_fixture_free": universe_fixture_free,
-        "historical_membership_events_available": membership_contract,
+        "historical_membership_events_available_when_required": (
+            membership_contract if membership_required else True
+        ),
         "real_prices_only": not prices["data_class"].astype(str).eq("fixture").any(),
         "auxiliary_tables_fixture_free": not fixture_auxiliary,
-        "corporate_actions_point_in_time_available": actions_contract,
-        "price_adjustment_policy_verified": bool(adjustment_policies)
-        and adjustment_policies <= VERIFIED_ADJUSTMENT_POLICIES,
+        "corporate_actions_point_in_time_available_when_required": (
+            actions_contract if actions_required else True
+        ),
+        "price_adjustment_policy_verified": adjustment_verified,
+        "price_adjustment_contract_matches_dataset": adjustment_contract_valid,
         "availability_not_before_observation": price_times_valid,
     }
     fixture_only = prices["data_class"].eq("fixture").all()
@@ -402,6 +603,11 @@ def leakage_audit(paths: Paths) -> dict:
         "checks": checks, "blockers": blockers,
         "limitations": limitations,
         "auxiliary_tables": auxiliary,
+        "universe_definition": universe_definition,
+        "index_code": universe_metadata.get("index_code"),
+        "adjustment_policies": sorted(adjustment_policies),
+        "price_adjustment_contract": adjustment_contract,
+        "corporate_actions_required": actions_required,
         "note": (
             "Historical universe/membership, corporate actions and adjustment policy are core "
             "research contracts. Optional PIT features are excluded when unavailable. Fixture "

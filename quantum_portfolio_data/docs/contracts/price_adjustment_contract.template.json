@@ -1,0 +1,9 @@
+{
+  "price_dataset_sha256": "REPLACE_WITH_SHA256_OF_outputs/normalized/prices.parquet",
+  "adjustment_policy": "verified_corporate_action_adjusted",
+  "source": "verified_data_provider",
+  "source_url": "https://documented-source.example/adjustment-methodology",
+  "methodology": "Describe dividends, splits, rights issues and restatement policy.",
+  "certified_by": "REPLACE_WITH_REVIEWER_OR_PROVIDER",
+  "certified_at": "2026-08-06T00:00:00Z"
+}

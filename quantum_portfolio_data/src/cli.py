@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from .data_pipeline import Paths, build_universe, generate_fixture, import_csv, leakage_audit, validate_data
+from .data_pipeline import (
+    Paths, apply_price_adjustment_contract, build_universe, generate_fixture, import_csv, leakage_audit,
+    quarantine_fixture_auxiliary, validate_data,
+)
 from .research import ResearchRunBlocked, build_features, load_config, run_experiment
 from .sources import (
     crawl_ssi_stage1,
@@ -58,9 +61,15 @@ def parser() -> argparse.ArgumentParser:
     )
     pit = sub.add_parser("import-pit-table", help="Import a point-in-time Stage 1/2/3 table")
     pit.add_argument("--table", required=True, choices=[
-        "index_membership", "corporate_actions", "financial_statements", "macro", "foreign_flow"
+        "index_membership", "corporate_actions", "financial_statements", "macro",
+        "foreign_flow", "benchmark", "security_master"
     ])
     pit.add_argument("--input", type=Path, required=True)
+    adjustment = sub.add_parser(
+        "apply-adjustment-contract",
+        help="Certify the exact normalized price panel using a hash-bound JSON contract",
+    )
+    adjustment.add_argument("--input", type=Path, required=True)
     sub.add_parser("normalize", help="Normalization is performed by the selected adapter")
     merge = sub.add_parser(
         "merge-market-sources",
@@ -71,6 +80,11 @@ def parser() -> argparse.ArgumentParser:
     val.add_argument("--stage", type=int, default=1)
     uni = sub.add_parser("build-universe", help="Build point-in-time rebalance universe")
     uni.add_argument("--rebalance", default="monthly")
+    uni.add_argument(
+        "--definition", choices=["hose_all_listed", "index_membership"],
+        default="hose_all_listed",
+    )
+    uni.add_argument("--index-code")
     sub.add_parser("report-coverage", help="Generate coverage report")
     sub.add_parser("leakage-audit", help="Audit point-in-time contracts")
     feat = sub.add_parser("build-features", help="Build leakage-aware features")
@@ -82,7 +96,8 @@ def parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run-experiment", help="Run end-to-end reproducible experiment")
     run.add_argument("--config", type=Path, default=ROOT / "configs" / "quick.yaml")
     full = sub.add_parser(
-        "run-full", help="Crawl configured fixture, validate, train, test and print full terminal report"
+        "run-full",
+        help="Validate/build/run the complete fixture or pre-imported research pipeline",
     )
     full.add_argument("--config", type=Path, default=ROOT / "configs" / "full_demo.yaml")
     return p
@@ -246,6 +261,8 @@ def main(argv=None) -> int:
                 paths, args.start, args.end,
                 max_tickers=args.max_tickers, tickers=requested,
             )
+        if args.source != "fixture":
+            result["quarantined_fixture_auxiliary"] = quarantine_fixture_auxiliary(paths)
         print(json.dumps(result, indent=2))
     elif args.command == "import-pit-table":
         contracts = {
@@ -254,15 +271,27 @@ def main(argv=None) -> int:
             "financial_statements": {"ticker", "fiscal_period_end", "publication_date", "available_at", "source", "source_url"},
             "macro": {"series_id", "observation_date", "release_date", "available_at", "value", "source", "source_url"},
             "foreign_flow": {"date", "ticker", "available_at", "foreign_net_value", "source", "source_url"},
+            "benchmark": {"date", "benchmark", "total_return_index", "available_at", "source", "source_url"},
+            "security_master": {
+                "ticker", "exchange", "listing_date", "delisting_date", "effective_from",
+                "effective_to", "available_at", "history_method", "source", "source_url",
+            },
         }
         output = paths.normalized / f"{args.table}.parquet"
         result = import_point_in_time_table(args.input, output, contracts[args.table], args.table)
         print(json.dumps(result, indent=2))
+    elif args.command == "apply-adjustment-contract":
+        print(json.dumps(
+            apply_price_adjustment_contract(paths, args.input),
+            indent=2, ensure_ascii=False,
+        ))
     elif args.command == "normalize":
         print("Normalization is idempotently performed during crawl/import.")
     elif args.command == "merge-market-sources":
+        result = merge_hose_checkpoints(paths, args.target_tickers)
+        result["quarantined_fixture_auxiliary"] = quarantine_fixture_auxiliary(paths)
         print(json.dumps(
-            merge_hose_checkpoints(paths, args.target_tickers),
+            result,
             indent=2, ensure_ascii=False,
         ))
     elif args.command in {"validate", "report-coverage"}:
@@ -271,7 +300,7 @@ def main(argv=None) -> int:
         if args.command == "report-coverage":
             print(coverage.to_string(index=False))
     elif args.command == "build-universe":
-        universe = build_universe(paths, args.rebalance)
+        universe = build_universe(paths, args.rebalance, args.definition, args.index_code)
         print(f"universe_rows={len(universe)}")
     elif args.command == "leakage-audit":
         print(json.dumps(leakage_audit(paths), indent=2))
@@ -288,16 +317,25 @@ def main(argv=None) -> int:
         print_experiment_summary(out)
     elif args.command == "run-full":
         cfg = load_config(args.config.resolve())
-        if cfg["data"]["source"] != "fixture":
-            raise SystemExit("run-full currently orchestrates the explicit fixture source only.")
-        manifest = generate_fixture(
-            paths, cfg["data"]["start"], cfg["data"]["end"],
-            cfg["data"]["tickers"], cfg["seed"],
-        )
-        print(json.dumps(manifest, indent=2, ensure_ascii=False))
+        if cfg["data"]["source"] == "fixture":
+            manifest = generate_fixture(
+                paths, cfg["data"]["start"], cfg["data"]["end"],
+                cfg["data"]["tickers"], cfg["seed"],
+            )
+            print(json.dumps(manifest, indent=2, ensure_ascii=False))
+        elif not (paths.normalized / "prices.parquet").exists():
+            raise SystemExit(
+                "Research run-full requires an existing normalized price panel. "
+                "Run the authorized crawl/import command first."
+            )
         quality, coverage = validate_data(paths)
         print(json.dumps(quality, indent=2, ensure_ascii=False))
-        universe = build_universe(paths, cfg["data"].get("rebalance", "monthly"))
+        universe_cfg = cfg.get("universe", {})
+        universe = build_universe(
+            paths, cfg["data"].get("rebalance", "monthly"),
+            universe_cfg.get("definition", "hose_all_listed"),
+            universe_cfg.get("index_code"),
+        )
         print(f"universe_rows={len(universe):,}")
         print(json.dumps(leakage_audit(paths), indent=2, ensure_ascii=False))
         out = run_experiment(ROOT, args.config.resolve())

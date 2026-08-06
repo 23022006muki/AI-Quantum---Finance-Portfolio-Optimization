@@ -7,12 +7,16 @@ data:
   end: "2025-12-31"
   tickers: [AAA, BBB, CCC, DDD, EEE, FFF, GGG, HHH]
   rebalance: monthly
+universe:
+  definition: hose_all_listed
+  index_code: null
 walk_forward:
   train_months: 24
   validation_months: 3
   test_months: 1
   max_folds: 4
   embargo_days: 20
+  selection: evenly_spaced
 target:
   horizon_days: 20
 model:
@@ -35,10 +39,12 @@ reduction:
   high_correlation_threshold: 0.65
 qubo:
   risk_aversion: 0.55
+  expected_return_source: xgboost_calibrated
 covariance:
   method: ewma
   span: 60
   horizon_days: 20
+  minimum_coverage: 0.90
 solver:
   qaoa_depth: 1
   shots: 1024
@@ -50,9 +56,26 @@ weights:
   upper: 0.60
   risk_aversion: 1.0
   turnover_penalty: 0.001
+constraints:
+  portfolio_notional_vnd: null
+  max_adv_participation: null
+  max_one_way_turnover: null
+  sector_cap: null
 backtest:
   transaction_cost_bps: 10
+  commission_bps: 10
+  sell_tax_bps: 0
+  slippage_bps: 0
+  impact_coefficient: 0
+  delisting_return: -1.0
+  maximum_unexplained_gap_days: 5
   risk_free_annual: 0.03
+benchmark:
+  name: VNINDEX_TOTAL_RETURN
+  required: false
+risk_free:
+  mode: fixed_annual
+  annual_rate: 0.03
 sensitivity:
   design: partial_factorial_representative_folds
   representative_folds: 1

@@ -2,60 +2,43 @@
 
 ## Trạng thái triển khai
 
-Nhánh `fix/research-validity` đã bổ sung:
+Nhánh `fix/research-validity` đã hoàn thiện luồng nghiên cứu AI–Quantum theo hướng
+fail-closed. QUBO dùng vector lợi nhuận kỳ vọng được hiệu chỉnh từ XGBoost trên validation
+đã purge; EWMA đa biến ước lượng hiệp phương sai và làm đối chứng. Universe toàn HOSE và
+universe theo thành phần chỉ số được khai báo tách biệt.
 
-- historical-universe/data-provenance contract và research fail-closed;
-- observation time/availability time semantics;
-- purged walk-forward với embargo và fold audit;
-- feature coverage theo fold, validation tuning, XGBoost–EWMA Rank IC comparison;
-- adaptive universe reduction có M trong biên qubit và diagnostics;
-- QUBO–Ising mapping;
-- COBYLA multi-start cho penalty-QAOA và Dicke/XY-QAOA;
-- primary most-probable solution tách khỏi best-observed solution;
-- buy-and-hold drift, gross/net returns, common costs và cost ledger;
-- benchmark 1/N, Markowitz, minimum variance, liquidity, EWMA, XGBoost, exact, SA,
-  penalty-QAOA và XY-QAOA;
-- centered paired block bootstrap, Holm correction và sensitivity chạy lại thật;
-- audit script, tài liệu phương pháp và 36 automated tests.
+Backtest hiện xử lý buy-and-hold drift, missing return, hủy niêm yết có xác minh, giới hạn
+tỷ trọng/ngành/turnover/ADV, đồng thời tách commission, thuế bán, slippage và market impact.
+Benchmark total-return và risk-free PIT có hợp đồng import riêng. H1–H6, ablation,
+sensitivity đa seed, noise stress, bootstrap–Holm và artifact SHA-256 đều có đầu ra kiểm toán.
 
-## Demo đã kiểm toán
+## Kiểm thử phần mềm
 
-Demo fixture gần nhất tại thời điểm sửa chạy 4/4 folds với 8 mã và 12.528 bản ghi.
-Audit artifact trả về `pass`. Demo chỉ xác nhận luồng phần mềm và mang nhãn
-**NOT RESEARCH RESULT**; mọi con số lợi nhuận/solver từ fixture không được dùng trong báo cáo
-thực nghiệm HOSE.
+- `42 passed`.
+- Có research-mode integration test thành công với hợp đồng dữ liệu tổng hợp hợp lệ.
+- Audit phát hiện artifact bị sửa sau khi chạy.
+- Demo fixture gần nhất audit `pass`; fixture không phải kết quả nghiên cứu.
 
-Lệnh tái lập:
+## Research gate trên panel hiện có
+
+Panel thật có 467.164 dòng, 300 mã, từ 2020-01-02 đến 2025-12-31. Lần chạy
+`20260806T181627-c5ef044e1b-blocked` được audit là `blocked_valid` và dừng trước model vì:
+
+1. data-quality còn 47 adjusted-return outliers chưa xác minh;
+2. lịch sử niêm yết/hủy niêm yết vẫn dùng `first_price_observation_proxy`;
+3. universe snapshot vì thế chưa có nguồn lịch sử đủ tin cậy;
+4. chưa có hợp đồng điều chỉnh giá đã xác minh;
+5. chưa có VN-Index total-return point-in-time theo data contract.
+
+Các bảng phụ fixture cũ đã được chuyển có thể phục hồi sang
+`outputs/quarantine/fixture_auxiliary/20260806T180922`. Không có metrics H1–H6 hoặc tuyên
+bố quantum advantage được phát hành từ run bị chặn.
+
+## Lệnh kiểm tra
 
 ```powershell
 python -m pytest -q
-python -m compileall -q src app.py scripts
-python -m src.cli run-full --config configs/quick.yaml
-python scripts/audit_research_run.py outputs/experiments/<demo-id>
+python -m compileall -q src app.py scripts tests
+python -m src.cli run-full --config configs/hose300_real.yaml
+python scripts/audit_research_run.py outputs/experiments/20260806T181627-c5ef044e1b-blocked --allow-blocked
 ```
-
-## Research gate
-
-Panel giá hiện có 467.164 bản ghi, 300 mã, giai đoạn thực tế 2020-01-02 đến
-2025-12-31 và vượt data-quality gate. Tuy nhiên research run bị chặn trước huấn luyện vì:
-
-- security master được suy từ phiên giá đầu tiên (`first_price_observation_proxy`), không
-  phải lịch sử niêm yết chính thức;
-- universe snapshot/membership history chưa có provenance lịch sử đạt hợp đồng;
-- corporate actions point-in-time và adjustment policy chưa được xác minh;
-- các bảng phụ còn mang nguồn fixture từ demo.
-
-Artifact blocker gần nhất được audit ở trạng thái `blocked_valid`. Hệ thống không tạo
-`metrics_long.csv`, backtest hoặc kết luận H1–H6 cho run bị chặn.
-
-```powershell
-python -m src.cli run-experiment --config configs/hose300_real.yaml
-python scripts/audit_research_run.py outputs/experiments/<blocked-id> --allow-blocked
-```
-
-## Ranh giới tuyên bố
-
-Không có quantum advantage claim. XY-QAOA và penalty-QAOA là ideal statevector
-simulations. Exact solver chỉ là oracle cho instance nhỏ. Chỉ một research run có leakage
-audit hợp lệ, provenance đầy đủ và audit script trả `pass` mới được dùng cập nhật kết quả
-nghiên cứu.

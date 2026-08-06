@@ -7,8 +7,9 @@ Hệ thống point-in-time cho chuỗi:
 
 ## Trạng thái dữ liệu
 
-Workspace có panel giá thị trường, nhưng chưa có historical HOSE universe, membership
-events và corporate actions point-in-time đủ provenance để kiểm soát survivorship bias.
+Workspace có panel giá thị trường 300 mã giai đoạn 2020–2025, nhưng chưa có lịch sử
+niêm yết/hủy niêm yết HOSE, hợp đồng điều chỉnh giá và benchmark total-return đủ provenance.
+Data-quality hiện còn 47 outlier lợi nhuận điều chỉnh chưa được xác minh.
 Vì vậy research mode hiện **fail-closed**: hệ thống tạo artifact `blocked` rồi dừng trước
 huấn luyện/backtest. Adapter `fixture` chỉ kiểm thử phần mềm và mọi artifact đều ghi
 **NOT RESEARCH RESULT**. Hệ thống không suy ngày niêm yết từ phiên giá đầu tiên, không
@@ -27,11 +28,24 @@ python -m src.cli run-experiment --config configs/quick.yaml
 python -m streamlit run app.py
 ```
 
+Cài đặt tái lập đúng toàn bộ dependency bắc cầu và hash:
+
+```powershell
+python -m pip install --require-hashes -r requirements.lock
+```
+
 Chạy một lệnh duy nhất để tạo dữ liệu fixture 30 mã, train/test 12 folds, chạy toàn bộ
 solver/ablation/sensitivity/statistics và in báo cáo chi tiết ngay trong terminal:
 
 ```powershell
 python -m src.cli run-full --config configs/full_demo.yaml
+```
+
+Chạy một lệnh trên panel thật đã import (lệnh sẽ fail-closed và xuất blocker artifact nếu
+hợp đồng point-in-time chưa đủ):
+
+```powershell
+python -m src.cli run-full --config configs/hose300_real.yaml
 ```
 
 Import CSV thật được cấp quyền:
@@ -54,11 +68,17 @@ Import các bảng point-in-time Stage 1–3:
 
 ```powershell
 python -m src.cli import-pit-table --table index_membership --input data\vn30_history.csv
+python -m src.cli import-pit-table --table security_master --input data\hose_listing_history.csv
 python -m src.cli import-pit-table --table corporate_actions --input data\actions.csv
 python -m src.cli import-pit-table --table financial_statements --input data\financials.csv
 python -m src.cli import-pit-table --table macro --input data\macro_release_calendar.csv
 python -m src.cli import-pit-table --table foreign_flow --input data\foreign_flow.csv
+python -m src.cli import-pit-table --table benchmark --input data\vnindex_total_return.csv
+python -m src.cli apply-adjustment-contract --input data\price_adjustment_contract.json
 ```
+
+Các mẫu hợp đồng nằm trong `docs/contracts/`. Hợp đồng điều chỉnh giá bị ràng buộc bằng
+SHA-256 với đúng file `prices.parquet`; hệ thống từ chối áp dụng nếu dữ liệu đã thay đổi.
 
 Mọi bảng bị từ chối nếu thiếu `available_at`, `source_url` và các timestamp hiệu lực/
 công bố theo data contract. `fetched_at` và `raw_checksum` được ghi khi import.
@@ -67,6 +87,7 @@ công bố theo data contract. `fetched_at` và `raw_checksum` được ghi khi 
 
 - `outputs/raw`: response/fixture gốc và immutable manifest.
 - `outputs/normalized`: prices, security master và corporate actions dạng Parquet.
+- `outputs/quarantine`: fixture phụ trợ cũ được chuyển có thể phục hồi khi chuyển sang dữ liệu thật.
 - `outputs/curated`: historical universe/features.
 - `outputs/reports`: coverage, quality và leakage audit.
 - `outputs/experiments/<id>`: config, hash, folds, rankings, instances, solver logs,
@@ -95,16 +116,18 @@ Xem thêm [data governance](docs/DATA_GOVERNANCE_AND_PIT.md),
 
 ## Risk, constraints and trading costs
 
-- The default estimator is a multivariate EWMA covariance matrix calculated only
-  with observations available before each rebalance.
+- The QUBO expected-return vector is calibrated from XGBoost ranks using only purged
+  validation data; multivariate EWMA estimates covariance and remains a baseline mean.
 - The quantum layer enforces fixed cardinality; the reference configuration
   selects exactly 4 assets from an 8-asset candidate universe.
 - Classical allocation enforces full investment, no short selling and the
   configured per-asset lower and upper bounds.
 - Every strategy uses buy-and-hold weight drift between monthly rebalances.
 - Turnover is calculated over the union of old/new holdings, including full exits.
-- The same transaction-cost policy applies to the proposed pipeline and every benchmark;
-  gross return, net return, trades and cost ledger are exported separately.
+- The same transaction-cost policy applies to every strategy, with commission, sell tax,
+  slippage and market impact exported separately.
+- Portfolio constraints support long-only/full investment, bounds, sector caps, turnover
+  limits and ADV capacity. Missing returns and verified delistings have an explicit audit log.
 
 ## Audit
 

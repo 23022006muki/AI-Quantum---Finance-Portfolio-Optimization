@@ -10,7 +10,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data_pipeline import Paths, build_universe, generate_fixture, leakage_audit, validate_data
+from src.data_pipeline import (
+    Paths, apply_price_adjustment_contract, build_universe, generate_fixture,
+    leakage_audit, sha256_file, validate_data,
+)
 from src.research import (
     FEATURES,
     ResearchRunBlocked,
@@ -25,8 +28,10 @@ from src.research import (
     purged_fold_frames,
     qubo_to_ising,
     record_rebalanced_strategy,
+    prepare_realized_return_panel,
     run_experiment,
     simulate_buy_and_hold,
+    transaction_cost_breakdown,
     xy_qaoa_statevector,
 )
 from src.sources import import_point_in_time_table
@@ -108,6 +113,14 @@ def test_fold_boundaries_are_chronological():
     assert all(f["validation_end"] == f["test_start"] for f in folds)
 
 
+def test_limited_folds_are_evenly_spread_across_oos_period():
+    dates = pd.Series(pd.bdate_range("2020-01-01", "2025-12-31"))
+    folds = make_folds(dates, 24, 3, 1, 4, 20, "evenly_spaced")
+    assert len(folds) == 4
+    assert folds[0]["test_start"].year < folds[-1]["test_start"].year
+    assert folds[0]["test_start"] < pd.Timestamp("2024-01-01")
+
+
 def test_fold_feature_coverage_drops_fully_missing_columns():
     rng = np.random.default_rng(3)
     train = pd.DataFrame({feature: np.nan for feature in FEATURES}, index=range(40))
@@ -177,6 +190,16 @@ def test_xy_noise_is_explicitly_a_proxy():
     assert "noise_proxy" not in result
 
 
+def test_xy_readout_channel_can_break_measured_cardinality_but_postselects_solution():
+    result = xy_qaoa_statevector(
+        np.eye(5), 2, 1, 8, 64, 2,
+        depolarizing_probability=0.0, readout_error_probability=1.0,
+    )
+    assert result["noise_model"] == "phenomenological_depolarizing_plus_readout_sampling"
+    assert result["feasibility_rate"] == 0.0
+    assert result["bits"].sum() == 2
+
+
 def test_penalty_primary_solution_is_feasible():
     result = penalty_qaoa_statevector(np.diag([0.1, -0.2, 0.05, -0.1]), 2, 1, 12, 64, 3)
     assert result["bits"].sum() == 2
@@ -195,6 +218,42 @@ def test_transaction_cost_is_debited_exactly_at_rebalance():
     result = simulate_buy_and_hold({"AAA": 0.5, "BBB": 0.5}, returns, 0.01)
     assert np.isclose(result["net_returns"].iloc[0], -0.01)
     assert np.isclose(result["gross_returns"].iloc[0], 0.0)
+
+
+def test_simulator_rejects_unresolved_missing_returns():
+    with pytest.raises(ValueError, match="unresolved"):
+        simulate_buy_and_hold({"AAA": 1.0}, pd.DataFrame({"AAA": [np.nan]}))
+
+
+def test_realized_panel_requires_verified_delisting_for_long_suffix():
+    dates = pd.bdate_range("2024-01-01", periods=10)
+    test = pd.DataFrame({
+        "date": dates[:3], "ticker": "AAA", "ret1": [0.01, 0.0, -0.01],
+    })
+    # Include the market calendar through other securities.
+    test = pd.concat([test, pd.DataFrame({"date": dates, "ticker": "BBB", "ret1": 0.0})])
+    master = pd.DataFrame({"ticker": ["AAA", "BBB"], "delisting_date": [pd.NaT, pd.NaT]})
+    with pytest.raises(ValueError, match="without a verified delisting"):
+        prepare_realized_return_panel(test, ["AAA"], master, research_mode=True,
+                                      maximum_unexplained_gap_days=2)
+    master.loc[master.ticker == "AAA", "delisting_date"] = dates[3]
+    panel, events = prepare_realized_return_panel(
+        test, ["AAA"], master, research_mode=True, maximum_unexplained_gap_days=2,
+    )
+    assert panel.loc[dates[3], "AAA"] == -1.0
+    assert any(row["event"] == "verified_delisting_liquidation" for row in events)
+
+
+def test_transaction_cost_breakdown_separates_sell_tax_and_impact():
+    total, details = transaction_cost_breakdown(
+        {"AAA": 0.2, "BBB": -0.3}, commission_bps=10, sell_tax_bps=10,
+        slippage_bps=5, impact_coefficient=0.001,
+        adv_capacity_weights={"AAA": 0.5, "BBB": 0.5},
+    )
+    assert total > 0
+    assert details["AAA"]["sell_tax_cost"] == 0
+    assert details["BBB"]["sell_tax_cost"] > 0
+    assert details["BBB"]["market_impact_cost"] > 0
 
 
 def test_common_strategy_recorder_creates_cost_ledger_inputs():
@@ -259,6 +318,54 @@ def test_point_in_time_import_requires_source_url(tmp_path: Path):
             {"ticker", "effective_from", "effective_to", "available_at", "source"},
             "index_membership",
         )
+
+
+def test_successful_research_mode_run_is_auditable_and_tamper_evident(tmp_path: Path):
+    paths = Paths(tmp_path)
+    generate_fixture(
+        paths, "2020-01-01", "2025-12-31",
+        ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH"], 9,
+    )
+    prices = pd.read_parquet(paths.normalized / "prices.parquet")
+    prices["data_class"] = "real"
+    prices["source"] = "authorized_test_market"
+    prices["source_url"] = "https://example.test/market"
+    prices["adjustment_policy"] = "verified_corporate_action_adjusted"
+    prices.to_parquet(paths.normalized / "prices.parquet", index=False)
+    contract = tmp_path / "adjustment_contract.json"
+    contract.write_text(json.dumps({
+        "price_dataset_sha256": sha256_file(paths.normalized / "prices.parquet"),
+        "adjustment_policy": "verified_corporate_action_adjusted",
+        "source": "authorized_test_market",
+        "source_url": "https://example.test/adjustment-methodology",
+        "methodology": "integration-test adjusted total-return contract",
+        "certified_by": "integration-test",
+        "certified_at": "2026-08-06T00:00:00Z",
+    }), encoding="utf-8")
+    apply_price_adjustment_contract(paths, contract)
+    master = pd.read_parquet(paths.normalized / "security_master.parquet")
+    master["data_class"] = "real"
+    master["source"] = "official_exchange_test_history"
+    master["source_url"] = "https://example.test/exchange-history"
+    master["history_method"] = "exchange_listing_history"
+    master.to_parquet(paths.normalized / "security_master.parquet", index=False)
+    for optional in ["financial_statements", "macro", "foreign_flow", "index_membership"]:
+        (paths.normalized / f"{optional}.parquet").unlink(missing_ok=True)
+    config = Path(__file__).parents[1] / "configs" / "quick.yaml"
+    research_config = tmp_path / "research.yaml"
+    text = config.read_text(encoding="utf-8").replace("mode: demo_fixture", "mode: research")
+    text = text.replace('label: "NOT RESEARCH RESULT"', 'label: "AUTHORIZED INTEGRATION TEST"')
+    text = text.replace("  source: fixture", "  source: configured")
+    research_config.write_text(text, encoding="utf-8")
+    out = run_experiment(tmp_path, research_config)
+    script = Path(__file__).parents[1] / "scripts" / "audit_research_run.py"
+    completed = subprocess.run([sys.executable, str(script), str(out)], capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    metrics = out / "metrics_long.csv"
+    metrics.write_text(metrics.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    tampered = subprocess.run([sys.executable, str(script), str(out)], capture_output=True, text=True)
+    assert tampered.returncode == 1
+    assert "SHA-256 mismatch" in tampered.stdout
 
 
 def test_source_files_are_valid_utf8_without_replacement_character():

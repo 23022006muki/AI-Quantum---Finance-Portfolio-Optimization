@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -27,7 +28,20 @@ REQUIRED_SUCCESS_ARTIFACTS = {
     "metrics_long.csv",
     "statistical_tests.csv",
     "sensitivity_results.csv",
+    "signal_calibration.csv",
+    "missing_return_resolution.csv",
+    "risk_free_series.csv",
+    "return_outlier_review.csv",
+    "constraint_diagnostics.csv",
 }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def audit(run_dir: Path, allow_blocked: bool = False) -> tuple[int, dict]:
@@ -85,6 +99,12 @@ def audit(run_dir: Path, allow_blocked: bool = False) -> tuple[int, dict]:
     ledger = pd.read_csv(run_dir / "cost_ledger.csv")
     if strategies - set(ledger["strategy"]):
         failures.append("one or more strategies have no transaction-cost ledger")
+    required_cost_columns = {
+        "commission_cost", "sell_tax_cost", "slippage_cost",
+        "market_impact_cost", "transaction_cost",
+    }
+    if not required_cost_columns <= set(ledger.columns):
+        failures.append("transaction-cost component ledger is incomplete")
 
     metrics = pd.read_csv(run_dir / "metrics_long.csv")
     core = metrics[["cumulative_return", "annualized_return", "annualized_volatility", "max_drawdown"]]
@@ -95,6 +115,27 @@ def audit(run_dir: Path, allow_blocked: bool = False) -> tuple[int, dict]:
     actual = {str(path.relative_to(run_dir)).replace("\\", "/") for path in run_dir.rglob("*") if path.is_file()}
     if not actual - {"manifest.json"} <= listed:
         failures.append("manifest artifact index is incomplete")
+    recorded_hashes = manifest.get("artifact_sha256", {})
+    if set(actual) - {"manifest.json"} != set(recorded_hashes):
+        failures.append("artifact SHA-256 index is incomplete or contains stale entries")
+    else:
+        mismatches = [
+            name for name, expected in recorded_hashes.items()
+            if sha256_file(run_dir / name) != expected
+        ]
+        if mismatches:
+            failures.append(f"artifact SHA-256 mismatch: {mismatches}")
+
+    instances = json.loads((run_dir / "optimization_instances.json").read_text(encoding="utf-8"))
+    if manifest.get("mode") == "research" and any(
+        row.get("expected_return_source") != "xgboost_calibrated" for row in instances
+    ):
+        failures.append("research QUBO instances do not use the declared calibrated AI signal")
+    missing_resolution = pd.read_csv(run_dir / "missing_return_resolution.csv")
+    if not missing_resolution.empty and missing_resolution.get(
+        "event", pd.Series(dtype=str)
+    ).astype(str).str.contains("unexplained").any():
+        failures.append("unexplained missing-return events remain in a successful run")
 
     return (1 if failures else 0), {"status": "fail" if failures else "pass", "failures": failures}
 

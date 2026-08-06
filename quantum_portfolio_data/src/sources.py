@@ -153,6 +153,7 @@ def normalize_ssi_ohlc(df: pd.DataFrame, ticker: str, source_url: str) -> pd.Dat
     out["raw_checksum"] = hashlib.sha256(raw).hexdigest()
     out["parser_version"] = "ssi-v2-normalizer-v1"
     out["data_class"] = "real"
+    out["adjustment_policy"] = "unverified"
     return out[PRICE_COLUMNS]
 
 
@@ -340,6 +341,7 @@ def normalize_vietstock_ohlc(
     out["raw_checksum"] = hashlib.sha256(raw).hexdigest()
     out["parser_version"] = "vietstock-history-v1"
     out["data_class"] = "real"
+    out["adjustment_policy"] = "unverified"
     return out[PRICE_COLUMNS].sort_values(["date", "ticker"]).reset_index(drop=True)
 
 
@@ -430,6 +432,7 @@ def _normalize_vnstock_ohlc(
     out["raw_checksum"] = hashlib.sha256(raw).hexdigest()
     out["parser_version"] = "vnstock-v4-kbs-v1"
     out["data_class"] = "real"
+    out["adjustment_policy"] = "unverified"
     return (
         out[PRICE_COLUMNS]
         .dropna(subset=["date", "open", "high", "low", "close", "volume"])
@@ -627,6 +630,7 @@ def _normalize_fdr_ohlc(
     out["raw_checksum"] = hashlib.sha256(raw).hexdigest()
     out["parser_version"] = "finance-datareader-yahoo-hose-v1"
     out["data_class"] = "real"
+    out["adjustment_policy"] = "unverified"
     return (
         out[PRICE_COLUMNS]
         .dropna(subset=["date", "open", "high", "low", "close", "volume"])
@@ -960,17 +964,31 @@ def import_point_in_time_table(
     missing = sorted(required - set(df.columns))
     if missing:
         raise ValueError(f"{table_name} missing required point-in-time fields: {missing}")
-    for col in [c for c in df.columns if c.endswith("_date") or c in {"available_at", "effective_from", "effective_to"}]:
+    for col in [c for c in df.columns if c.endswith("_date") or c in {
+        "date", "available_at", "effective_from", "effective_to"
+    }]:
         df[col] = pd.to_datetime(df[col], errors="coerce")
     temporal_origins = {
         "corporate_actions": "announcement_date",
         "financial_statements": "fiscal_period_end",
         "macro": "observation_date",
         "foreign_flow": "date",
+        "benchmark": "date",
     }
     origin = temporal_origins.get(table_name)
     if origin and origin in df and (df["available_at"] < pd.to_datetime(df[origin])).any():
         raise ValueError(f"{table_name} has available_at before {origin}")
+    temporal_required = [
+        column for column in required
+        if column.endswith("_date") or column in {"date", "available_at", "effective_from"}
+    ]
+    temporal_required = [
+        column for column in temporal_required
+        if column not in {"delisting_date", "effective_to"}
+    ]
+    invalid_temporal = [column for column in temporal_required if df[column].isna().any()]
+    if invalid_temporal:
+        raise ValueError(f"{table_name} has invalid required timestamps: {invalid_temporal}")
     checksum = hashlib.sha256(input_path.read_bytes()).hexdigest()
     df["fetched_at"] = pd.to_datetime(df.get("fetched_at", datetime.now(timezone.utc)))
     df["raw_checksum"] = df.get("raw_checksum", checksum)

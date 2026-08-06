@@ -8,11 +8,11 @@ Mỗi bảng nghiên cứu phải có `source`, `source_url`, `fetched_at` và `
 
 ## Universe lịch sử
 
-Universe tại mỗi kỳ được tạo từ security master có khoảng hiệu lực và thời điểm khả dụng. Snapshot lưu lại nguồn, checksum và lý do đủ điều kiện. `run_experiment` đọc trực tiếp snapshot này; không dùng danh sách HOSE hiện tại để backfill quá khứ. Nếu thiếu provenance, corporate actions hoặc membership events theo hợp đồng point-in-time, research run tạo artifact `blocked` và dừng trước huấn luyện.
+Universe tại mỗi kỳ được tạo theo một định nghĩa khai báo rõ. `hose_all_listed` dùng lịch sử niêm yết/hủy niêm yết của Sở; `index_membership` dùng các khoảng thành viên của đúng chỉ số được chọn. Hai khái niệm không được thay thế cho nhau. Snapshot lưu nguồn, checksum và lý do đủ điều kiện. Nếu thiếu provenance hoặc hợp đồng dữ liệu cốt lõi, research run tạo artifact `blocked` và dừng trước huấn luyện.
 
 ## Giá và sự kiện doanh nghiệp
 
-Adapter phải giữ nguyên availability timestamp thay vì ghi đè bằng ngày quan sát. Dữ liệu giá điều chỉnh chỉ được dùng khi chính sách điều chỉnh và nguồn corporate actions có thể kiểm toán. Hệ thống không tự suy đoán chia tách, cổ tức hoặc quyền mua từ outlier giá.
+Adapter phải giữ nguyên availability timestamp thay vì ghi đè bằng ngày quan sát. Dữ liệu giá điều chỉnh chỉ được dùng khi có hợp đồng giá điều chỉnh đã xác minh, hoặc giá thô được nối với bảng corporate action point-in-time. Hệ thống xuất từng outlier trên 30% vào `return_outlier_review.csv`; outlier không có cách giải thích được xác minh là lỗi data-quality, không còn là warning bỏ qua được.
 
 ## Dữ liệu tùy chọn
 
@@ -21,4 +21,3 @@ Báo cáo tài chính, vĩ mô và foreign flow chỉ tham gia feature set khi c
 ## Fail-closed
 
 Research mode không dùng fixture, không dùng historical universe suy diễn và không tạo metrics khi audit bị chặn. Demo fixture vẫn chạy toàn bộ code path nhưng mọi artifact mang nhãn `NOT RESEARCH RESULT`.
-

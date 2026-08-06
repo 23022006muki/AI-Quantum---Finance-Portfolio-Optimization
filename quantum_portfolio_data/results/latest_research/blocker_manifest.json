@@ -10,13 +10,18 @@
     "actual_end": "2025-12-31"
   },
   "blockers": [
+    "data_quality: 47 unresolved adjusted-return outliers",
     "historical_universe_source_trusted",
-    "universe_snapshot_fixture_free",
-    "historical_membership_events_available",
-    "auxiliary_tables_fixture_free",
-    "corporate_actions_point_in_time_available",
-    "price_adjustment_policy_verified"
+    "universe_snapshot_source_trusted",
+    "price_adjustment_policy_verified",
+    "price_adjustment_contract_matches_dataset",
+    "verified_total_return_benchmark_available"
   ],
+  "universe_definition": "hose_all_listed",
+  "membership_history_required": false,
+  "latest_blocked_experiment": "20260806T181627-c5ef044e1b-blocked",
+  "blocked_artifact_audit": "blocked_valid",
+  "software_tests": "42 passed",
   "metrics_published": false,
   "quantum_advantage_claim": false,
   "required_next_gate": "audit_research_run.py must return pass"
