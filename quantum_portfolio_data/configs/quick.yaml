@@ -12,19 +12,27 @@ walk_forward:
   validation_months: 3
   test_months: 1
   max_folds: 4
+  embargo_days: 20
+target:
+  horizon_days: 20
 model:
   kind: xgboost
   n_estimators: 40
   max_depth: 3
   learning_rate: 0.05
+  min_feature_coverage: 0.05
 reduction:
   qubit_budget: 6
   candidate_size: 6
+  min_candidate_size: 4
+  max_candidate_size: 6
   cardinality: 3
   signal_weight: 0.55
   liquidity_weight: 0.20
   risk_weight: 0.15
   correlation_penalty: 0.10
+  low_signal_dispersion_ratio: 0.10
+  high_correlation_threshold: 0.65
 qubo:
   risk_aversion: 0.55
 covariance:
@@ -36,6 +44,7 @@ solver:
   shots: 1024
   seeds: [11, 23, 47]
   parameter_trials: 24
+  optimizer: COBYLA
 weights:
   lower: 0.0
   upper: 0.60
@@ -44,3 +53,7 @@ weights:
 backtest:
   transaction_cost_bps: 10
   risk_free_annual: 0.03
+sensitivity:
+  design: partial_factorial_representative_folds
+  representative_folds: 1
+  seeds: [11]

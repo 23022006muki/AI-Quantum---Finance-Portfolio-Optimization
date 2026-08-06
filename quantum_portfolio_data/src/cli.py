@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from .data_pipeline import Paths, build_universe, generate_fixture, import_csv, leakage_audit, validate_data
-from .research import build_features, load_config, run_experiment
+from .research import ResearchRunBlocked, build_features, load_config, run_experiment
 from .sources import (
     crawl_ssi_stage1,
     crawl_vietstock_stage1,
@@ -176,7 +176,7 @@ def print_experiment_summary(out: Path) -> None:
     print("-" * 100)
     print(f"Số sensitivity cases: {len(sensitivity):,}")
     sensitivity_view = sensitivity.groupby(
-        ["depth_p", "shots", "cardinality", "noise"]
+        ["depth_p", "shots", "cardinality", "uniform_probability_noise_proxy"]
     ).agg(
         feasibility_rate=("feasibility_rate", "mean"),
         optimality_gap=("optimality_gap", "mean"),
@@ -249,11 +249,11 @@ def main(argv=None) -> int:
         print(json.dumps(result, indent=2))
     elif args.command == "import-pit-table":
         contracts = {
-            "index_membership": {"ticker", "index_code", "effective_from", "effective_to", "available_at", "source"},
-            "corporate_actions": {"ticker", "event_type", "announcement_date", "effective_date", "available_at", "source"},
-            "financial_statements": {"ticker", "fiscal_period_end", "publication_date", "available_at", "source"},
-            "macro": {"series_id", "observation_date", "release_date", "available_at", "value", "source"},
-            "foreign_flow": {"date", "ticker", "available_at", "foreign_net_value", "source"},
+            "index_membership": {"ticker", "index_code", "effective_from", "effective_to", "available_at", "source", "source_url", "history_method"},
+            "corporate_actions": {"ticker", "event_type", "announcement_date", "effective_date", "available_at", "source", "source_url"},
+            "financial_statements": {"ticker", "fiscal_period_end", "publication_date", "available_at", "source", "source_url"},
+            "macro": {"series_id", "observation_date", "release_date", "available_at", "value", "source", "source_url"},
+            "foreign_flow": {"date", "ticker", "available_at", "foreign_net_value", "source", "source_url"},
         }
         output = paths.normalized / f"{args.table}.parquet"
         result = import_point_in_time_table(args.input, output, contracts[args.table], args.table)
@@ -318,4 +318,9 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except ResearchRunBlocked as exc:
+        print(f"RESEARCH RUN BLOCKED: {exc}", file=sys.stderr)
+        print(f"Audit artifact: {exc.output_dir}", file=sys.stderr)
+        raise SystemExit(2)

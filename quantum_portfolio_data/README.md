@@ -7,10 +7,12 @@ Hệ thống point-in-time cho chuỗi:
 
 ## Trạng thái dữ liệu
 
-Workspace chưa có nguồn HOSE 2015–2025 được cấp quyền và kiểm chứng. Adapter `fixture`
-chỉ dùng kiểm thử phần mềm và mọi artifact đều ghi **NOT RESEARCH RESULT**. Adapter
-`csv` nhận file thật do người dùng cấp, kèm tên và URL/dataset nguồn; hệ thống không
-đoán endpoint, không vượt paywall/CAPTCHA/robots.txt.
+Workspace có panel giá thị trường, nhưng chưa có historical HOSE universe, membership
+events và corporate actions point-in-time đủ provenance để kiểm soát survivorship bias.
+Vì vậy research mode hiện **fail-closed**: hệ thống tạo artifact `blocked` rồi dừng trước
+huấn luyện/backtest. Adapter `fixture` chỉ kiểm thử phần mềm và mọi artifact đều ghi
+**NOT RESEARCH RESULT**. Hệ thống không suy ngày niêm yết từ phiên giá đầu tiên, không
+đoán endpoint và không vượt paywall/CAPTCHA/robots.txt.
 
 ## Cài đặt và chạy trên Windows PowerShell
 
@@ -58,8 +60,8 @@ python -m src.cli import-pit-table --table macro --input data\macro_release_cale
 python -m src.cli import-pit-table --table foreign_flow --input data\foreign_flow.csv
 ```
 
-Mọi bảng bị từ chối nếu thiếu `available_at` và các timestamp hiệu lực/công bố theo
-data contract.
+Mọi bảng bị từ chối nếu thiếu `available_at`, `source_url` và các timestamp hiệu lực/
+công bố theo data contract. `fetched_at` và `raw_checksum` được ghi khi import.
 
 ## Kiến trúc
 
@@ -73,10 +75,10 @@ data contract.
 ## Quantum implementation
 
 XY-QAOA dùng ideal statevector trong không gian fixed-Hamming-weight. Trạng thái đầu là
-Dicke state; all-to-all XY exchange mixer chỉ nối các bitstring khả thi. Đây là simulator
-nội bộ tái lập được, không phải phần cứng lượng tử. Penalty-QAOA dùng full-Hilbert-space
-statevector, `|+>` initialization, cost Hamiltonian có cardinality penalty và transverse-X
-mixer. Baseline stochastic cũ vẫn được giữ và ghi nhãn rõ để đối chiếu.
+Dicke state; all-to-all XY exchange mixer chỉ nối các bitstring khả thi. Góc biến phân
+được tối ưu bằng COBYLA đa khởi tạo và lưu đầy đủ trace. Nghiệm chính là bitstring khả thi
+có xác suất cao nhất; best-observed được báo riêng. Đây là simulator nội bộ, không phải
+phần cứng lượng tử và không phải bằng chứng quantum advantage.
 
 ## Recovery và reproducibility
 
@@ -85,8 +87,11 @@ dataset hash, seeds, environment và artifact index. Có thể đọc UI từ ar
 chạy lại solver. Full config không được chạy như nghiên cứu cho đến khi leakage audit
 trên dữ liệu thật pass.
 
-Xem thêm [data dictionary](docs/DATA_DICTIONARY.md) và
-[source registry](docs/SOURCE_REGISTRY.md).
+Xem thêm [data governance](docs/DATA_GOVERNANCE_AND_PIT.md),
+[methodology traceability](docs/METHODOLOGY_TRACEABILITY.md),
+[quantum implementation](docs/QUANTUM_IMPLEMENTATION.md),
+[backtest and statistics](docs/BACKTEST_AND_STATISTICS.md) và
+[research limitations](docs/RESEARCH_LIMITATIONS.md).
 
 ## Risk, constraints and trading costs
 
@@ -96,7 +101,17 @@ Xem thêm [data dictionary](docs/DATA_DICTIONARY.md) và
   selects exactly 4 assets from an 8-asset candidate universe.
 - Classical allocation enforces full investment, no short selling and the
   configured per-asset lower and upper bounds.
-- Each strategy carries its drifted holdings into the next fold. Turnover is
-  calculated over the union of old and new holdings as the sum of absolute
-  pre-trade-to-target weight changes.
-- Transaction costs are charged on actual turnover, including full exits.
+- Every strategy uses buy-and-hold weight drift between monthly rebalances.
+- Turnover is calculated over the union of old/new holdings, including full exits.
+- The same transaction-cost policy applies to the proposed pipeline and every benchmark;
+  gross return, net return, trades and cost ledger are exported separately.
+
+## Audit
+
+```powershell
+python scripts/audit_research_run.py outputs/experiments/<experiment-id>
+python scripts/audit_research_run.py outputs/experiments/<blocked-id> --allow-blocked
+```
+
+Lệnh thứ hai xác nhận một blocked run là trung thực và không chứa metrics; nó không biến
+blocked run thành research result.

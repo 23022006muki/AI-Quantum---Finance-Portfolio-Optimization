@@ -1,84 +1,61 @@
 # Run report
 
-## Final implemented scope
+## Trạng thái triển khai
 
-The executable system now includes:
+Nhánh `fix/research-validity` đã bổ sung:
 
-- immutable raw manifests, normalized/curated layers and Parquet contracts;
-- deterministic Stage 1–3 fixtures with explicit `data_class=fixture`;
-- official SSI FastConnect Stage 1 adapter with retry/backoff and fail-closed credentials;
-- user-authorized CSV adapter and point-in-time importers for historical index membership,
-  corporate actions, financial statements, macro releases and foreign flow;
-- official FRED adapter with release-aware timestamps;
-- point-in-time universe reconstruction and leakage/data-quality/coverage audits;
-- technical, fundamental and macro features joined only after `available_at`;
-- walk-forward folds, train-only imputer/scaler and XGBoost/EWMA baselines;
-- correlation-aware adaptive universe reduction;
-- QUBO, exact solver, simulated annealing and stochastic penalty baseline;
-- full-space ideal statevector penalty-QAOA circuit simulation;
-- fixed-Hamming-weight Dicke/XY-QAOA ideal statevector simulation;
-- classical constrained weight optimization and transaction costs;
-- eight ablation configurations;
-- sensitivity over cardinality, depth, shots, noise proxy and transaction cost;
-- block-bootstrap paired comparisons with Holm correction;
-- trailing-information market-regime metrics;
-- Streamlit artifact viewer and reproducible Markdown/HTML reports.
+- historical-universe/data-provenance contract và research fail-closed;
+- observation time/availability time semantics;
+- purged walk-forward với embargo và fold audit;
+- feature coverage theo fold, validation tuning, XGBoost–EWMA Rank IC comparison;
+- adaptive universe reduction có M trong biên qubit và diagnostics;
+- QUBO–Ising mapping;
+- COBYLA multi-start cho penalty-QAOA và Dicke/XY-QAOA;
+- primary most-probable solution tách khỏi best-observed solution;
+- buy-and-hold drift, gross/net returns, common costs và cost ledger;
+- benchmark 1/N, Markowitz, minimum variance, liquidity, EWMA, XGBoost, exact, SA,
+  penalty-QAOA và XY-QAOA;
+- centered paired block bootstrap, Holm correction và sensitivity chạy lại thật;
+- audit script, tài liệu phương pháp và 36 automated tests.
 
-## Latest verified execution
+## Demo đã kiểm toán
 
-Experiment:
+Demo fixture gần nhất tại thời điểm sửa chạy 4/4 folds với 8 mã và 12.528 bản ghi.
+Audit artifact trả về `pass`. Demo chỉ xác nhận luồng phần mềm và mang nhãn
+**NOT RESEARCH RESULT**; mọi con số lợi nhuận/solver từ fixture không được dùng trong báo cáo
+thực nghiệm HOSE.
 
-`outputs/experiments/20260730T002029-1c4e58b47e`
-
-Commands:
+Lệnh tái lập:
 
 ```powershell
 python -m pytest -q
-python -m compileall -q src app.py
-python -m src.cli crawl --stage 1 --source fixture --from 2020-01-01 --to 2025-12-31
-python -m src.cli validate --stage 1
-python -m src.cli build-universe --rebalance monthly
-python -m src.cli leakage-audit
-python -m src.cli run-experiment --config configs/quick.yaml
-python -m streamlit run app.py --server.headless=true --server.port=8511
+python -m compileall -q src app.py scripts
+python -m src.cli run-full --config configs/quick.yaml
+python scripts/audit_research_run.py outputs/experiments/<demo-id>
 ```
 
-Verified results:
+## Research gate
 
-- Tests: 10 passed.
-- Compilation: passed.
-- Records: 46,980; tickers: 30; period: 2020-01-01 through 2025-12-31.
-- Universe rows: 2,160.
-- Fixture data quality: pass.
-- Fixture leakage contracts: 5/5 true, `pass_for_fixture_demo`.
-- Walk-forward folds: 12/12.
-- Ablation configurations: 8, producing 96 fold-level ablation rows.
-- Sensitivity cases: 48.
-- Solver runs: 108.
-- Penalty-QAOA mean feasibility: approximately 0.781 in the 30-ticker comprehensive run.
-- XY-QAOA/Dicke feasibility: 1.0 by fixed-weight subspace construction.
-- Paired block-bootstrap/Holm results: no significant outperformance in fixture mode.
-- UI: `http://localhost:8511`.
-- Full research config preflight: correctly refused fixture data.
+Panel giá hiện có 467.164 bản ghi, 300 mã, giai đoạn thực tế 2020-01-02 đến
+2025-12-31 và vượt data-quality gate. Tuy nhiên research run bị chặn trước huấn luyện vì:
 
-## Scientific status
+- security master được suy từ phiên giá đầu tiên (`first_price_observation_proxy`), không
+  phải lịch sử niêm yết chính thức;
+- universe snapshot/membership history chưa có provenance lịch sử đạt hợp đồng;
+- corporate actions point-in-time và adjustment policy chưa được xác minh;
+- các bảng phụ còn mang nguồn fixture từ demo.
 
-All fixture artifacts are labeled **NOT RESEARCH RESULT**. The software implementation is
-complete and tested, but a genuine HOSE 2015–2025 research execution cannot be fabricated.
-The official SSI adapter requires credentials that are not present:
-
-- `SSI_CONSUMER_ID`
-- `SSI_CONSUMER_SECRET`
-
-Historical listing/delisting dates, VN30 effective membership, corporate-action history and
-publication-timestamp financial statements must also come from an authorized, reliable
-source. The pipeline rejects incomplete point-in-time tables.
-
-To execute official data after credentials are supplied:
+Artifact blocker gần nhất được audit ở trạng thái `blocked_valid`. Hệ thống không tạo
+`metrics_long.csv`, backtest hoặc kết luận H1–H6 cho run bị chặn.
 
 ```powershell
-$env:SSI_CONSUMER_ID="..."
-$env:SSI_CONSUMER_SECRET="..."
-python -m src.cli crawl --stage 1 --source ssi --from 2015-01-01 --to 2025-12-31 `
-  --tickers VNM,FPT,HPG,SSI
+python -m src.cli run-experiment --config configs/hose300_real.yaml
+python scripts/audit_research_run.py outputs/experiments/<blocked-id> --allow-blocked
 ```
+
+## Ranh giới tuyên bố
+
+Không có quantum advantage claim. XY-QAOA và penalty-QAOA là ideal statevector
+simulations. Exact solver chỉ là oracle cho instance nhỏ. Chỉ một research run có leakage
+audit hợp lệ, provenance đầy đủ và audit script trả `pass` mới được dùng cập nhật kết quả
+nghiên cứu.

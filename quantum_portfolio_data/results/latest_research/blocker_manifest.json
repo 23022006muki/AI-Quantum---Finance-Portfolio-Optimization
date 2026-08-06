@@ -1,0 +1,23 @@
+{
+  "status": "blocked",
+  "mode": "research",
+  "branch": "fix/research-validity",
+  "price_panel": {
+    "data_class": "real",
+    "records": 467164,
+    "tickers": 300,
+    "actual_start": "2020-01-02",
+    "actual_end": "2025-12-31"
+  },
+  "blockers": [
+    "historical_universe_source_trusted",
+    "universe_snapshot_fixture_free",
+    "historical_membership_events_available",
+    "auxiliary_tables_fixture_free",
+    "corporate_actions_point_in_time_available",
+    "price_adjustment_policy_verified"
+  ],
+  "metrics_published": false,
+  "quantum_advantage_claim": false,
+  "required_next_gate": "audit_research_run.py must return pass"
+}

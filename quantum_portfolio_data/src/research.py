@@ -23,7 +23,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
-from .data_pipeline import Paths, leakage_audit, sha256_file, validate_data
+from .data_pipeline import Paths, build_universe, leakage_audit, sha256_file, validate_data
 
 
 FEATURES = [
@@ -32,6 +32,14 @@ FEATURES = [
     "downside_volatility_20d", "drawdown_60d", "liquidity_20d", "beta_60d",
     "roe_pit", "revenue_growth_yoy_pit", "policy_rate_pit",
 ]
+
+
+class ResearchRunBlocked(RuntimeError):
+    """Raised after an auditable blocked-run artifact has been written."""
+
+    def __init__(self, message: str, output_dir: Path):
+        super().__init__(message)
+        self.output_dir = output_dir
 
 
 def load_config(path: Path) -> dict:
@@ -45,7 +53,7 @@ def _rsi(s: pd.Series, n: int = 14) -> pd.Series:
     return 100 - 100 / (1 + gain / loss.replace(0, np.nan))
 
 
-def build_features(prices: pd.DataFrame) -> pd.DataFrame:
+def build_features(prices: pd.DataFrame, target_horizon_days: int = 20) -> pd.DataFrame:
     base = prices.sort_values(["ticker", "date"]).copy()
     base["_ret1"] = base.groupby("ticker")["adjusted_close"].pct_change()
     market_return = base.groupby("date")["_ret1"].mean()
@@ -71,12 +79,16 @@ def build_features(prices: pd.DataFrame) -> pd.DataFrame:
         x["liquidity_20d"] = np.log1p(x["trading_value"].rolling(20).mean())
         market = x["date"].map(market_return)
         x["beta_60d"] = r.rolling(60).cov(market) / market.rolling(60).var()
-        x["target_return_20d"] = p.shift(-20) / p - 1
+        x["target_return_20d"] = p.shift(-target_horizon_days) / p - 1
+        x["label_end_time"] = pd.to_datetime(x["date"]).shift(-target_horizon_days)
+        x["target_horizon_days"] = int(target_horizon_days)
         x["target_rank"] = np.nan
         frames.append(x)
     out = pd.concat(frames, ignore_index=True)
     out["target_rank"] = out.groupby("date")["target_return_20d"].rank(pct=True)
-    out["feature_available_at"] = pd.to_datetime(out["date"])
+    out["feature_available_at"] = pd.to_datetime(
+        out.get("available_at", out["date"]), errors="coerce"
+    )
     out["roe_pit"] = np.nan
     out["revenue_growth_yoy_pit"] = np.nan
     out["policy_rate_pit"] = np.nan
@@ -96,13 +108,15 @@ def attach_point_in_time_features(features: pd.DataFrame, paths: Paths) -> pd.Da
             right = financial[financial.ticker == ticker][
                 ["available_at", "roe_pit", "revenue_growth_yoy_pit"]
             ].rename(columns={"available_at": "financial_available_at"}).sort_values("financial_available_at")
-            left = group.drop(columns=["roe_pit", "revenue_growth_yoy_pit"]).sort_values("date")
+            left = group.drop(columns=["roe_pit", "revenue_growth_yoy_pit"]).sort_values(
+                "feature_available_at"
+            )
             if right.empty:
                 left["roe_pit"] = np.nan
                 left["revenue_growth_yoy_pit"] = np.nan
             else:
                 left = pd.merge_asof(
-                    left, right, left_on="date", right_on="financial_available_at",
+                    left, right, left_on="feature_available_at", right_on="financial_available_at",
                     direction="backward", allow_exact_matches=True,
                 ).drop(columns=["financial_available_at"])
             out_frames.append(left)
@@ -117,8 +131,8 @@ def attach_point_in_time_features(features: pd.DataFrame, paths: Paths) -> pd.Da
                 columns={"available_at": "macro_available_at", "value": "policy_rate_new"}
             )
             features = pd.merge_asof(
-                features.sort_values("date"), policy,
-                left_on="date", right_on="macro_available_at", direction="backward",
+                features.sort_values("feature_available_at"), policy,
+                left_on="feature_available_at", right_on="macro_available_at", direction="backward",
             ).drop(columns=["macro_available_at"])
             features["policy_rate_pit"] = features["policy_rate_new"]
             features = features.drop(columns=["policy_rate_new"])
@@ -126,7 +140,8 @@ def attach_point_in_time_features(features: pd.DataFrame, paths: Paths) -> pd.Da
 
 
 def make_folds(dates: pd.Series, train_months: int, validation_months: int,
-               test_months: int, max_folds: int | None) -> list[dict]:
+               test_months: int, max_folds: int | None,
+               embargo_days: int = 0) -> list[dict]:
     unique = pd.Series(pd.to_datetime(dates).sort_values().unique())
     first = unique.min() + pd.DateOffset(months=train_months + validation_months)
     last = unique.max() - pd.DateOffset(months=test_months)
@@ -136,32 +151,107 @@ def make_folds(dates: pd.Series, train_months: int, validation_months: int,
     folds = []
     for i, test_start in enumerate(anchors):
         train_start = test_start - pd.DateOffset(months=train_months + validation_months)
-        train_end = test_start - pd.DateOffset(months=validation_months)
+        validation_start = test_start - pd.DateOffset(months=validation_months)
         test_end = test_start + pd.DateOffset(months=test_months)
         folds.append({
-            "fold": i, "train_start": train_start, "train_end": train_end,
+            "fold": i, "train_start": train_start, "train_end": validation_start,
+            "validation_start": validation_start,
             "validation_end": test_start, "test_start": test_start, "test_end": test_end,
+            "embargo_days": int(embargo_days),
         })
     return folds
 
 
+def purged_fold_frames(features: pd.DataFrame, fold: dict) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
+    """Create chronological train/validation/test frames with label purging and embargo."""
+    embargo = pd.Timedelta(days=int(fold.get("embargo_days", 0)))
+    train_raw = features[
+        (features.date >= fold["train_start"]) & (features.date < fold["train_end"])
+    ].copy()
+    val_raw = features[
+        (features.date >= fold["validation_start"]) & (features.date < fold["validation_end"])
+    ].copy()
+    test = features[
+        (features.date > fold["test_start"]) & (features.date <= fold["test_end"])
+    ].copy()
+    train_cutoff = pd.Timestamp(fold["validation_start"]) - embargo
+    validation_cutoff = pd.Timestamp(fold["test_start"]) - embargo
+    train = train_raw[
+        train_raw["label_end_time"].notna() & (train_raw["label_end_time"] < train_cutoff)
+        & (train_raw["feature_available_at"] < train_cutoff)
+    ].copy()
+    validation = val_raw[
+        val_raw["label_end_time"].notna() & (val_raw["label_end_time"] < validation_cutoff)
+        & (val_raw["feature_available_at"] < validation_cutoff)
+    ].copy()
+    audit = {
+        **fold,
+        "train_rows_raw": len(train_raw), "train_rows_after_purge": len(train),
+        "train_rows_purged": len(train_raw) - len(train),
+        "validation_rows_raw": len(val_raw), "validation_rows_after_purge": len(validation),
+        "validation_rows_purged": len(val_raw) - len(validation),
+        "test_rows": len(test), "train_label_cutoff": train_cutoff,
+        "validation_label_cutoff": validation_cutoff,
+    }
+    return train, validation, test, audit
+
+
 def fit_ranker(train: pd.DataFrame, validation: pd.DataFrame, cfg: dict):
     usable = train.dropna(subset=["target_rank"])
-    imputer = SimpleImputer(strategy="median", keep_empty_features=True).fit(usable[FEATURES])
-    scaler = StandardScaler().fit(imputer.transform(usable[FEATURES]))
-    x_train = scaler.transform(imputer.transform(usable[FEATURES]))
-    model = XGBRegressor(
-        n_estimators=cfg["n_estimators"], max_depth=cfg["max_depth"],
-        learning_rate=cfg["learning_rate"], objective="reg:squarederror",
-        random_state=42, n_jobs=1,
-    )
-    model.fit(x_train, usable["target_rank"])
-    return imputer, scaler, model
+    if usable.empty:
+        raise ValueError("No purged training labels are available for this fold.")
+    coverage = usable[FEATURES].notna().mean()
+    threshold = float(cfg.get("min_feature_coverage", 0.05))
+    active_features = coverage[coverage >= threshold].index.tolist()
+    if not active_features:
+        raise ValueError("All features are below the configured fold coverage threshold.")
+    imputer = SimpleImputer(strategy="median").fit(usable[active_features])
+    scaler = StandardScaler().fit(imputer.transform(usable[active_features]))
+    x_train = scaler.transform(imputer.transform(usable[active_features]))
+    y_train = usable["target_rank"].to_numpy()
+    validation_usable = validation.dropna(subset=["target_rank"])
+    tuning_rows = []
+    base_estimators = int(cfg["n_estimators"])
+    base_depth = int(cfg["max_depth"])
+    candidates = [
+        (max(20, base_estimators // 2), max(2, base_depth - 1)),
+        (base_estimators, base_depth),
+        (base_estimators, max(2, base_depth + 1)),
+    ]
+    best = None
+    for n_estimators, max_depth in dict.fromkeys(candidates):
+        model = XGBRegressor(
+            n_estimators=n_estimators, max_depth=max_depth,
+            learning_rate=cfg["learning_rate"], objective="reg:squarederror",
+            random_state=int(cfg.get("seed", 42)), n_jobs=1,
+        )
+        model.fit(x_train, y_train)
+        if validation_usable.empty:
+            validation_ic = np.nan
+        else:
+            x_val = scaler.transform(imputer.transform(validation_usable[active_features]))
+            validation_ic = float(spearmanr(
+                model.predict(x_val), validation_usable["target_rank"]
+            ).statistic)
+        score = validation_ic if np.isfinite(validation_ic) else -np.inf
+        tuning_rows.append({
+            "n_estimators": n_estimators, "max_depth": max_depth,
+            "validation_rank_ic": validation_ic,
+        })
+        if best is None or score > best[0]:
+            best = (score, model, n_estimators, max_depth)
+    return {
+        "imputer": imputer, "scaler": scaler, "model": best[1],
+        "active_features": active_features,
+        "feature_coverage": coverage.to_dict(), "tuning": tuning_rows,
+        "selected_params": {"n_estimators": best[2], "max_depth": best[3]},
+    }
 
 
 def predict(model_bundle, df: pd.DataFrame) -> np.ndarray:
-    imputer, scaler, model = model_bundle
-    return model.predict(scaler.transform(imputer.transform(df[FEATURES])))
+    return model_bundle["model"].predict(model_bundle["scaler"].transform(
+        model_bundle["imputer"].transform(df[model_bundle["active_features"]])
+    ))
 
 
 def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) -> pd.DataFrame:
@@ -175,10 +265,28 @@ def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) ->
         + cfg["liquidity_weight"] * snap["liquidity_z"]
         - cfg["risk_weight"] * snap["risk_z"]
     )
-    m = min(cfg["candidate_size"], cfg["qubit_budget"], len(snap))
+    m_max = min(int(cfg.get("max_candidate_size", cfg["candidate_size"])),
+                int(cfg["qubit_budget"]), len(snap))
+    m_min = min(m_max, max(int(cfg.get("min_candidate_size", cfg.get("cardinality", 1))),
+                           int(cfg.get("cardinality", 1))))
     selected: list[str] = []
     returns = history.pivot(index="date", columns="ticker", values="ret1").tail(120)
     corr = returns.corr().fillna(0)
+    upper = corr.where(np.triu(np.ones(corr.shape), 1).astype(bool)).stack()
+    average_abs_correlation = float(upper.abs().mean()) if len(upper) else 0.0
+    signal_dispersion = float(snap["signal"].std(ddof=0))
+    dispersion_reference = float(snap["signal"].abs().median()) + 1e-12
+    relative_dispersion = signal_dispersion / dispersion_reference
+    m = m_max
+    reasons = []
+    if relative_dispersion < float(cfg.get("low_signal_dispersion_ratio", 0.10)):
+        m = max(m_min, m - 1)
+        reasons.append("low_signal_dispersion")
+    if average_abs_correlation > float(cfg.get("high_correlation_threshold", 0.65)):
+        m = max(m_min, m - 1)
+        reasons.append("high_cross_sectional_correlation")
+    if not reasons:
+        reasons.append("full_budget_supported")
     for _ in range(m):
         remain = snap[~snap["ticker"].isin(selected)].copy()
         if selected:
@@ -193,11 +301,44 @@ def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) ->
     snap["selected_candidate"] = snap["ticker"].isin(selected)
     snap["decision_reason"] = np.where(snap["selected_candidate"],
         "selected_by_signal_liquidity_risk_and_correlation", "outside_qubit_budget")
+    snap["eligible_count"] = len(snap)
+    snap["selected_m"] = m
+    snap["signal_dispersion"] = signal_dispersion
+    snap["relative_signal_dispersion"] = relative_dispersion
+    snap["average_abs_correlation"] = average_abs_correlation
+    snap["candidate_size_reason"] = "|".join(reasons)
     return snap.sort_values(["selected_candidate", "base_score"], ascending=[False, False])
 
 
 def qubo_instance(mu: np.ndarray, cov: np.ndarray, risk_aversion: float) -> np.ndarray:
     return risk_aversion * cov - (1 - risk_aversion) * np.diag(mu)
+
+
+def qubo_to_ising(q: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
+    """Map symmetric ``x.T @ Q @ x`` to ``offset + h.z + sum J_ij z_i z_j``.
+
+    The binary/spin convention is x=(1-z)/2 with z in {-1,+1}.
+    """
+    q = (np.asarray(q, dtype=float) + np.asarray(q, dtype=float).T) / 2
+    n = len(q)
+    offset = 0.0
+    h = np.zeros(n)
+    j = np.zeros((n, n))
+    for i in range(n):
+        offset += q[i, i] / 2
+        h[i] -= q[i, i] / 2
+        for k in range(i + 1, n):
+            offset += q[i, k] / 2
+            h[i] -= q[i, k] / 2
+            h[k] -= q[i, k] / 2
+            j[i, k] = j[k, i] = q[i, k] / 2
+    return float(offset), h, j
+
+
+def ising_energy(spins: np.ndarray, offset: float, h: np.ndarray, j: np.ndarray) -> float:
+    pair = sum(j[i, k] * spins[i] * spins[k]
+               for i in range(len(spins)) for k in range(i + 1, len(spins)))
+    return float(offset + h @ spins + pair)
 
 
 def ewma_mean_cov(returns: pd.DataFrame, span: int = 60,
@@ -258,6 +399,77 @@ def drift_weights(target: dict[str, float], test_returns: pd.DataFrame) -> dict[
     return {name: float(value / total) for name, value in zip(columns, values) if value > 1e-12}
 
 
+def simulate_buy_and_hold(
+    target: dict[str, float], test_returns: pd.DataFrame, transaction_cost: float = 0.0,
+) -> dict:
+    """Simulate units drifting between rebalances, with an exact initial cost debit."""
+    if not target or test_returns.empty:
+        empty = pd.Series(dtype=float)
+        return {"gross_returns": empty, "net_returns": empty, "ending_weights": target.copy(),
+                "gross_wealth": empty, "net_wealth": empty}
+    tickers = list(target)
+    returns = test_returns.reindex(columns=tickers).fillna(0.0).astype(float)
+    weights = np.asarray([target[ticker] for ticker in tickers], dtype=float)
+    weights /= weights.sum()
+    gross_values = weights.copy()
+    net_values = weights * max(0.0, 1.0 - float(transaction_cost))
+    gross_wealth, net_wealth = [], []
+    for row in returns.to_numpy():
+        gross_values *= 1.0 + row
+        net_values *= 1.0 + row
+        gross_wealth.append(float(gross_values.sum()))
+        net_wealth.append(float(net_values.sum()))
+    gross_wealth = pd.Series(gross_wealth, index=returns.index, name="gross_wealth")
+    net_wealth = pd.Series(net_wealth, index=returns.index, name="net_wealth")
+    gross_returns = gross_wealth.pct_change()
+    net_returns = net_wealth.pct_change()
+    gross_returns.iloc[0] = gross_wealth.iloc[0] - 1.0
+    net_returns.iloc[0] = net_wealth.iloc[0] - 1.0
+    total = float(net_values.sum())
+    ending = ({ticker: float(value / total) for ticker, value in zip(tickers, net_values)}
+              if total > 0 else target.copy())
+    return {
+        "gross_returns": gross_returns, "net_returns": net_returns,
+        "ending_weights": ending, "gross_wealth": gross_wealth, "net_wealth": net_wealth,
+    }
+
+
+def record_rebalanced_strategy(
+    name: str, fold: dict, target: dict[str, float], test_returns: pd.DataFrame,
+    previous_weights: dict[str, dict[str, float]], cost_rate: float,
+    weight_rows: list[dict], trade_rows: list[dict], return_rows: list[dict],
+) -> dict:
+    """Apply one common accounting policy to every benchmark and proposed strategy."""
+    previous = previous_weights.setdefault(name, {})
+    turnover, changes = portfolio_turnover(previous, target)
+    simulation = simulate_buy_and_hold(target, test_returns, cost_rate * turnover)
+    previous_weights[name] = simulation["ending_weights"]
+    decision_time = fold["test_start"]
+    trade_time = test_returns.index.min() if not test_returns.empty else pd.NaT
+    for ticker in sorted(set(previous) | set(target)):
+        weight_rows.append({
+            "fold": fold["fold"], "decision_time": decision_time, "strategy": name,
+            "ticker": ticker, "weight": target.get(ticker, 0.0),
+            "pre_trade_weight": previous.get(ticker, 0.0),
+        })
+        trade_rows.append({
+            "fold": fold["fold"], "trade_time": trade_time, "strategy": name,
+            "ticker": ticker, "pre_trade_weight": previous.get(ticker, 0.0),
+            "target_weight": target.get(ticker, 0.0), "trade_weight": changes[ticker],
+            "turnover": abs(changes[ticker]),
+            "transaction_cost": abs(changes[ticker]) * cost_rate,
+        })
+    for date in simulation["net_returns"].index:
+        return_rows.append({
+            "fold": fold["fold"], "date": date, "strategy": name,
+            "gross_return": simulation["gross_returns"].loc[date],
+            "net_return": simulation["net_returns"].loc[date],
+            "return": simulation["net_returns"].loc[date],
+        })
+    return {"turnover": turnover, "transaction_cost": cost_rate * turnover,
+            **simulation}
+
+
 def energy(bits: np.ndarray, q: np.ndarray) -> float:
     return float(bits @ q @ bits)
 
@@ -299,12 +511,53 @@ def simulated_annealing(q: np.ndarray, k: int, seed: int, steps: int = 800) -> d
         if cur_e < best_e:
             best, best_e = bits.copy(), cur_e
     return {"method": "simulated_annealing", "bits": best, "energy": float(best_e),
-            "feasibility_rate": 1.0, "runtime_seconds": time.perf_counter() - start}
+            "feasibility_rate": 1.0, "runtime_seconds": time.perf_counter() - start,
+            "seed": seed}
+
+
+def _optimize_qaoa_angles(evaluate, p: int, budget: int, seed: int) -> dict:
+    """Deterministic multi-start COBYLA optimization with an auditable trace."""
+    rng = np.random.default_rng(seed)
+    starts = max(1, min(3, budget // 8))
+    per_start = max(5, budget // starts)
+    trace = []
+    best = None
+    bounds = [(0.0, 2 * np.pi)] * p + [(0.0, np.pi)] * p
+    for start_id in range(starts):
+        x0 = np.r_[rng.uniform(0, 2 * np.pi, p), rng.uniform(0, np.pi, p)]
+        evaluations = []
+
+        def objective(params):
+            expected, _ = evaluate(params)
+            evaluations.append(float(expected))
+            return expected
+
+        result = minimize(
+            objective, x0, method="COBYLA", bounds=bounds,
+            options={"maxiter": per_start, "tol": 1e-7, "catol": 1e-7},
+        )
+        expected, probabilities = evaluate(result.x)
+        trace.append({
+            "start": start_id, "initial_parameters": x0.tolist(),
+            "final_parameters": result.x.tolist(), "objective_trace": evaluations,
+            "final_expected_energy": float(expected), "success": bool(result.success),
+            "stopping_reason": str(result.message), "evaluations": int(result.nfev),
+        })
+        if best is None or expected < best["expected_energy"]:
+            best = {
+                "expected_energy": float(expected), "probabilities": probabilities,
+                "parameters": result.x, "success": bool(result.success),
+                "stopping_reason": str(result.message),
+            }
+    best["trace"] = trace
+    best["optimizer"] = "COBYLA_multi_start"
+    best["optimizer_budget"] = int(budget)
+    return best
 
 
 def xy_qaoa_statevector(
     q: np.ndarray, k: int, p: int, trials: int, shots: int, seed: int,
-    noise: float = 0.0,
+    uniform_probability_noise_proxy: float = 0.0,
 ) -> dict:
     """Ideal statevector simulation in the fixed-Hamming-weight subspace.
 
@@ -324,35 +577,55 @@ def xy_qaoa_statevector(
                 mixer[i, j] = mixer[j, i] = 1.0
     mixer_eigenvalues, mixer_eigenvectors = np.linalg.eigh(mixer)
     initial = np.ones(dim, dtype=complex) / np.sqrt(dim)
-    best = None
-    for _ in range(trials):
-        gammas = rng.uniform(0, 2 * np.pi, p)
-        betas = rng.uniform(0, np.pi, p)
+    cost_scale = max(float(np.max(np.abs(costs))), 1e-12)
+    phase_costs = costs / cost_scale
+
+    def evaluate(params):
+        gammas, betas = params[:p], params[p:]
         psi = initial.copy()
         for gamma, beta in zip(gammas, betas):
-            psi *= np.exp(-1j * gamma * costs)
+            psi *= np.exp(-1j * gamma * phase_costs)
             coefficients = mixer_eigenvectors.T.conj() @ psi
             psi = mixer_eigenvectors @ (
                 np.exp(-1j * beta * mixer_eigenvalues) * coefficients
             )
         probs = np.abs(psi) ** 2
-        expected = float(probs @ costs)
-        if best is None or expected < best["expected"]:
-            best = {"expected": expected, "probs": probs, "gammas": gammas, "betas": betas}
-    sample_probs = best["probs"] / best["probs"].sum()
-    if noise:
-        sample_probs = (1 - noise) * sample_probs + noise * np.ones(dim) / dim
+        return float(probs @ costs), probs / probs.sum()
+
+    optimized = _optimize_qaoa_angles(evaluate, p, trials, seed)
+    sample_probs = optimized["probabilities"].copy()
+    if uniform_probability_noise_proxy:
+        level = float(uniform_probability_noise_proxy)
+        if not 0 <= level <= 1:
+            raise ValueError("uniform_probability_noise_proxy must be in [0, 1].")
+        sample_probs = (1 - level) * sample_probs + level * np.ones(dim) / dim
     counts_idx = rng.choice(dim, size=shots, p=sample_probs)
     counts = np.bincount(counts_idx, minlength=dim)
-    observed = int(np.argmin(np.where(counts > 0, costs, np.inf)))
+    primary = int(np.argmax(sample_probs))
+    best_observed = int(np.argmin(np.where(counts > 0, costs, np.inf)))
+    optimal_mask = np.isclose(costs, costs.min(), atol=1e-10, rtol=1e-8)
     bit_counts = {"".join(map(str, states[i])): int(c) for i, c in enumerate(counts) if c}
+    bit_probs = {"".join(map(str, states[i])): float(prob)
+                 for i, prob in enumerate(sample_probs) if prob > 1e-12}
     return {
-        "method": "xy_qaoa_dicke_ideal_statevector", "bits": states[observed],
-        "energy": float(costs[observed]), "mean_energy": best["expected"],
+        "method": "xy_qaoa_dicke_ideal_statevector", "bits": states[primary],
+        "seed": seed,
+        "energy": float(costs[primary]), "expected_energy": float(sample_probs @ costs),
+        "mean_energy": float(sample_probs @ costs),
+        "primary_probability": float(sample_probs[primary]),
+        "success_probability": float(sample_probs[optimal_mask].sum()),
+        "best_observed_bits": states[best_observed],
+        "best_observed_energy": float(costs[best_observed]),
         "feasibility_rate": 1.0, "runtime_seconds": time.perf_counter() - start,
         "shots": shots, "depth_p": p, "two_qubit_gate_estimate": p * len(q) * (len(q) - 1) // 2,
         "bitstring_counts": bit_counts, "backend": "internal_ideal_statevector_fixed_weight",
-        "noise_proxy": noise,
+        "bitstring_probabilities": bit_probs,
+        "uniform_probability_noise_proxy": float(uniform_probability_noise_proxy),
+        "optimizer": optimized["optimizer"], "optimizer_budget": optimized["optimizer_budget"],
+        "optimal_parameters": optimized["parameters"].tolist(),
+        "parameter_trace": optimized["trace"],
+        "optimizer_success": optimized["success"],
+        "stopping_reason": optimized["stopping_reason"],
     }
 
 
@@ -368,7 +641,7 @@ def penalty_qaoa_baseline(q: np.ndarray, k: int, seed: int, shots: int = 1024) -
     feasible = samples.sum(axis=1) == k
     return {"method": "penalty_stochastic_baseline", "bits": samples[idx],
             "energy": energy(samples[idx], q), "feasibility_rate": float(feasible.mean()),
-            "runtime_seconds": time.perf_counter() - start, "shots": shots,
+            "runtime_seconds": time.perf_counter() - start, "shots": shots, "seed": seed,
             "backend": "classical_stochastic_baseline_not_qaoa_circuit"}
 
 
@@ -393,13 +666,14 @@ def penalty_qaoa_statevector(
     total_cost = economic + penalty_strength * (states.sum(axis=1) - k) ** 2
     dim = len(states)
     initial = np.ones(dim, dtype=complex) / np.sqrt(dim)
-    best = None
-    for _ in range(trials):
-        gammas = rng.uniform(0, 2 * np.pi, p)
-        betas = rng.uniform(0, np.pi, p)
+    cost_scale = max(float(np.max(np.abs(total_cost))), 1e-12)
+    phase_cost = total_cost / cost_scale
+
+    def evaluate(params):
+        gammas, betas = params[:p], params[p:]
         psi = initial.copy()
         for gamma, beta in zip(gammas, betas):
-            psi *= np.exp(-1j * gamma * total_cost)
+            psi *= np.exp(-1j * gamma * phase_cost)
             # exp(-i beta sum X_j) factorizes into independent single-qubit
             # rotations because all X_j terms commute.
             cosine, sine = np.cos(beta), -1j * np.sin(beta)
@@ -412,27 +686,44 @@ def penalty_qaoa_statevector(
                     psi[lo] = cosine * a + sine * b
                     psi[hi] = sine * a + cosine * b
         probs = np.abs(psi) ** 2
-        expected = float(probs @ total_cost)
-        if best is None or expected < best["expected"]:
-            best = {"expected": expected, "probs": probs}
-    sampled = rng.choice(dim, size=shots, p=best["probs"] / best["probs"].sum())
+        return float(probs @ total_cost), probs / probs.sum()
+
+    optimized = _optimize_qaoa_angles(evaluate, p, trials, seed)
+    probabilities = optimized["probabilities"]
+    sampled = rng.choice(dim, size=shots, p=probabilities)
     counts = np.bincount(sampled, minlength=dim)
     feasible = states.sum(axis=1) == k
+    feasible_indices = np.flatnonzero(feasible)
+    chosen_idx = int(feasible_indices[np.argmax(probabilities[feasible_indices])])
     observed_pool = np.flatnonzero((counts > 0) & feasible)
-    if len(observed_pool):
-        chosen_idx = int(observed_pool[np.argmin(economic[observed_pool])])
-    else:
-        chosen_idx = int(np.argmin(np.where(counts > 0, total_cost, np.inf)))
+    best_observed_idx = (
+        int(observed_pool[np.argmin(economic[observed_pool])])
+        if len(observed_pool) else int(np.argmin(np.where(counts > 0, total_cost, np.inf)))
+    )
     bit_counts = {"".join(map(str, states[i])): int(c) for i, c in enumerate(counts) if c}
     sampled_feasible = sum(c for i, c in enumerate(counts) if feasible[i]) / shots
+    optimum = economic[feasible].min()
+    optimal_mask = feasible & np.isclose(economic, optimum, atol=1e-10, rtol=1e-8)
     return {
         "method": "penalty_qaoa_ideal_statevector", "bits": states[chosen_idx],
-        "energy": float(economic[chosen_idx]), "penalized_mean_energy": best["expected"],
+        "seed": seed,
+        "energy": float(economic[chosen_idx]),
+        "expected_energy": float(probabilities @ economic),
+        "penalized_mean_energy": optimized["expected_energy"],
+        "primary_probability": float(probabilities[chosen_idx]),
+        "success_probability": float(probabilities[optimal_mask].sum()),
+        "best_observed_bits": states[best_observed_idx],
+        "best_observed_energy": float(economic[best_observed_idx]),
         "feasibility_rate": float(sampled_feasible),
         "runtime_seconds": time.perf_counter() - start, "shots": shots, "depth_p": p,
         "two_qubit_gate_estimate": p * (n * (n - 1) // 2 + n),
         "bitstring_counts": bit_counts, "backend": "internal_ideal_statevector_full_hilbert",
         "penalty_strength": penalty_strength,
+        "optimizer": optimized["optimizer"], "optimizer_budget": optimized["optimizer_budget"],
+        "optimal_parameters": optimized["parameters"].tolist(),
+        "parameter_trace": optimized["trace"],
+        "optimizer_success": optimized["success"],
+        "stopping_reason": optimized["stopping_reason"],
     }
 
 
@@ -465,12 +756,21 @@ def paired_block_bootstrap_test(
         sample = np.concatenate([diff[s:s + block] for s in starts])[:len(diff)]
         means.append(sample.mean())
     means = np.asarray(means)
-    p_value = 2 * min((means <= 0).mean(), (means >= 0).mean())
+    centered = diff - diff.mean()
+    null_means = []
+    for _ in range(samples):
+        starts = rng.integers(0, len(centered) - block + 1, math.ceil(len(centered) / block))
+        sample = np.concatenate([centered[s:s + block] for s in starts])[:len(centered)]
+        null_means.append(sample.mean())
+    null_means = np.asarray(null_means)
+    p_value = float((np.abs(null_means) >= abs(diff.mean())).mean())
     return {
         "mean_difference": float(diff.mean()),
         "ci_low": float(np.quantile(means, 0.025)),
         "ci_high": float(np.quantile(means, 0.975)),
         "p_value": float(min(1.0, p_value)),
+        "effect_size_daily": float(diff.mean()),
+        "bootstrap_centered_under_null": True,
     }
 
 
@@ -558,30 +858,80 @@ def block_bootstrap_sharpe(returns: pd.Series, rf: float, seed: int, samples: in
     return tuple(np.nanquantile(vals, [0.025, 0.975]))
 
 
+def _blocked_experiment(
+    project_root: Path, config_path: Path, cfg: dict, quality: dict, leak: dict,
+    blockers: list[str], message: str,
+) -> Path:
+    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    cfg_hash = hashlib.sha256(config_path.read_bytes()).hexdigest()[:10]
+    experiment_id = f"{stamp}-{cfg_hash}-blocked"
+    out = project_root / "outputs" / "experiments" / experiment_id
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "resolved_config.yaml").write_text(
+        yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
+    (out / "data_quality.json").write_text(json.dumps(quality, indent=2), encoding="utf-8")
+    (out / "leakage_audit.json").write_text(json.dumps(leak, indent=2), encoding="utf-8")
+    manifest = {
+        "experiment_id": experiment_id, "status": "blocked", "label": cfg.get("label"),
+        "mode": cfg.get("mode"), "created_at": datetime.now(timezone.utc).isoformat(),
+        "blockers": blockers, "message": message, "config": str(config_path),
+        "artifacts": ["RESEARCH_BLOCKED.md", "data_quality.json", "leakage_audit.json",
+                      "resolved_config.yaml"],
+    }
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (out / "RESEARCH_BLOCKED.md").write_text(
+        "# Research run blocked\n\n"
+        f"- Experiment: `{experiment_id}`\n"
+        f"- Reason: {message}\n"
+        f"- Blockers: `{blockers}`\n\n"
+        "No model, backtest, or research metric was produced. The system did not infer or "
+        "fabricate historical universe records. Supply verified point-in-time source data, "
+        "rebuild the universe snapshots, rerun the leakage audit, and then rerun this config.\n",
+        encoding="utf-8",
+    )
+    return out
+
+
 def run_experiment(project_root: Path, config_path: Path) -> Path:
     cfg = load_config(config_path)
     paths = Paths(project_root)
     quality, _ = validate_data(paths)
+    if cfg.get("mode") != "research" and not (paths.curated / "universe_monthly.parquet").exists():
+        build_universe(paths, cfg.get("data", {}).get("rebalance", "monthly"))
     leak = leakage_audit(paths)
     if quality["status"] != "pass":
-        raise RuntimeError("Data quality failed; refusing to run.")
+        message = "Data quality failed; refusing to run."
+        blocked = _blocked_experiment(project_root, config_path, cfg, quality, leak,
+                                      ["data_quality"], message)
+        raise ResearchRunBlocked(message, blocked)
+    if cfg.get("mode") == "research" and "fixture" in quality["data_class"]:
+        message = ("Research mode refuses fixture data. Supply verified real point-in-time "
+                   "data and pass the leakage audit before using a research config.")
+        blocked = _blocked_experiment(project_root, config_path, cfg, quality, leak,
+                                      ["fixture_data_in_research_mode"], message)
+        raise ResearchRunBlocked(message, blocked)
+    if cfg.get("mode") == "research" and leak["status"] not in {"pass", "pass_with_limitations"}:
+        message = "Historical point-in-time leakage audit blocked the research run."
+        blocked = _blocked_experiment(project_root, config_path, cfg, quality, leak,
+                                      leak.get("blockers", ["leakage_audit"]), message)
+        raise ResearchRunBlocked(message, blocked)
     if leak["status"] == "blocked":
         raise RuntimeError("Leakage audit blocked; refusing to label results.")
-    if cfg.get("mode") == "research" and "fixture" in quality["data_class"]:
-        raise RuntimeError(
-            "Research mode refuses fixture data. Supply verified real point-in-time data "
-            "and pass the leakage audit before using configs/full.yaml."
-        )
     if cfg["reduction"]["candidate_size"] > 8 and cfg.get("mode") != "research":
         raise RuntimeError("Internal exact statevector demo is limited to 8 candidate qubits.")
     prices = pd.read_parquet(paths.normalized / "prices.parquet")
     prices["date"] = pd.to_datetime(prices["date"])
     prices = prices.sort_values(["ticker", "date"])
     prices["ret1"] = prices.groupby("ticker")["adjusted_close"].pct_change()
-    features = attach_point_in_time_features(build_features(prices), paths)
+    target_horizon = int(cfg.get("target", {}).get(
+        "horizon_days", cfg.get("covariance", {}).get("horizon_days", 20)
+    ))
+    features = attach_point_in_time_features(build_features(prices, target_horizon), paths)
     wf = cfg["walk_forward"]
     folds = make_folds(features["date"], wf["train_months"], wf["validation_months"],
-                       wf["test_months"], wf.get("max_folds"))
+                       wf["test_months"], wf.get("max_folds"),
+                       wf.get("embargo_days", cfg.get("target", {}).get("horizon_days", 20)))
     stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     cfg_hash = hashlib.sha256(config_path.read_bytes()).hexdigest()[:10]
     experiment_id = f"{stamp}-{cfg_hash}"
@@ -589,39 +939,112 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     fig_dir = out / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
     features.to_parquet(out / "features.parquet", index=False)
-    pd.DataFrame(folds).to_csv(out / "fold_manifest.csv", index=False)
+    universe = pd.read_parquet(paths.curated / "universe_monthly.parquet")
+    universe["decision_time"] = pd.to_datetime(universe["decision_time"])
     ranking_rows, selection_rows, instance_rows = [], [], []
     solver_rows, weight_rows, trade_rows, return_rows = [], [], [], []
-    ablation_rows, sensitivity_rows = [], []
+    ablation_rows, sensitivity_rows, fold_audit_rows = [], [], []
+    feature_coverage_rows, tuning_rows, aur_diagnostic_rows = [], [], []
     previous_weights: dict[str, dict[str, float]] = {
-        "full_pipeline_exact_selection": {},
+        "full_pipeline_xy_qaoa": {},
     }
+    sensitivity_cfg = cfg.get("sensitivity", {})
+    representative_count = min(
+        len(folds), int(sensitivity_cfg.get("representative_folds", 1))
+    )
+    sensitivity_fold_ids = set(
+        int(index) for index in np.linspace(0, max(0, len(folds) - 1),
+                                           max(1, representative_count)).round()
+    )
+    sensitivity_seeds = sensitivity_cfg.get("seeds", cfg["solver"]["seeds"][:1])
     for fold in folds:
-        train = features[(features.date >= fold["train_start"]) & (features.date < fold["train_end"])].copy()
-        val = features[(features.date >= fold["train_end"]) & (features.date < fold["validation_end"])].copy()
-        test = features[(features.date > fold["test_start"]) & (features.date <= fold["test_end"])].copy()
-        snapshot_date = features.loc[features.date <= fold["test_start"], "date"].max()
+        train, val, test, fold_audit = purged_fold_frames(features, fold)
+        fold_audit_rows.append(fold_audit)
+        eligible_snapshots = universe[universe["decision_time"] <= fold["test_start"]]
+        if eligible_snapshots.empty:
+            continue
+        universe_time = eligible_snapshots["decision_time"].max()
+        eligible_tickers = set(eligible_snapshots[
+            (eligible_snapshots["decision_time"] == universe_time)
+            & eligible_snapshots["eligible"].astype(bool)
+        ]["ticker"])
+        available_features = features[
+            (features.date <= fold["test_start"])
+            & (features.feature_available_at <= fold["test_start"])
+            & features.ticker.isin(eligible_tickers)
+        ]
+        if available_features.empty:
+            continue
+        snapshot_date = available_features["date"].max()
         market_features = [
             name for name in FEATURES
             if name not in {"roe_pit", "revenue_growth_yoy_pit", "policy_rate_pit"}
         ]
-        snap = features[features.date == snapshot_date].dropna(subset=market_features).copy()
+        snap = available_features[available_features.date == snapshot_date].dropna(
+            subset=market_features
+        ).copy()
         if len(snap) < cfg["reduction"]["candidate_size"] or test.empty:
             continue
-        bundle = fit_ranker(train, val, cfg["model"])
+        model_cfg = {**cfg["model"], "seed": cfg.get("seed", 42)}
+        bundle = fit_ranker(train, val, model_cfg)
         snap["signal"] = predict(bundle, snap)
+        for feature, coverage in bundle["feature_coverage"].items():
+            feature_coverage_rows.append({
+                "fold": fold["fold"], "feature": feature, "training_coverage": coverage,
+                "active": feature in bundle["active_features"],
+            })
+        for tuning in bundle["tuning"]:
+            tuning_rows.append({"fold": fold["fold"], **tuning,
+                                "selected": all(tuning[key] == bundle["selected_params"][key]
+                                                for key in ("n_estimators", "max_depth"))})
+        history = features[
+            (features.date <= snapshot_date) & features.ticker.isin(eligible_tickers)
+        ].copy()
+        history["ret1"] = history.sort_values(["ticker", "date"]).groupby("ticker")[
+            "adjusted_close"
+        ].pct_change()
+        ewma_panel = history.pivot(index="date", columns="ticker", values="ret1").tail(252)
+        ewma_signal = ewma_panel.ewm(
+            span=int(cfg.get("covariance", {}).get("span", 60)), adjust=False
+        ).mean().iloc[-1]
+        snap["ewma_signal"] = snap["ticker"].map(ewma_signal)
         known = snap.dropna(subset=["target_rank"])
         ic = spearmanr(known["signal"], known["target_rank"]).statistic if len(known) > 2 else np.nan
+        ewma_known = known.dropna(subset=["ewma_signal"])
+        ewma_ic = (spearmanr(ewma_known["ewma_signal"], ewma_known["target_rank"]).statistic
+                   if len(ewma_known) > 2 else np.nan)
         for row in snap.itertuples():
             ranking_rows.append({"fold": fold["fold"], "decision_time": snapshot_date,
-                                 "ticker": row.ticker, "signal": row.signal, "fold_rank_ic": ic})
-        history = features[features.date <= snapshot_date].copy()
-        history["ret1"] = history.sort_values(["ticker", "date"]).groupby("ticker")["adjusted_close"].pct_change()
+                                 "ticker": row.ticker, "signal": row.signal,
+                                 "ewma_signal": row.ewma_signal, "fold_rank_ic": ic,
+                                 "xgboost_rank_ic": ic, "ewma_rank_ic": ewma_ic,
+                                 "universe_snapshot_time": universe_time})
         reduced = adaptive_reduce(snap, history, cfg["reduction"])
         reduced["fold"] = fold["fold"]
         reduced["decision_time"] = snapshot_date
-        selection_rows.extend(reduced[["fold", "decision_time", "ticker", "base_score",
-            "selected_candidate", "decision_reason"]].to_dict("records"))
+        selected_now = set(reduced.loc[reduced.selected_candidate, "ticker"])
+        previous_candidates = set(aur_diagnostic_rows[-1]["selected_tickers"].split("|")) if aur_diagnostic_rows else set()
+        candidate_turnover = (len(selected_now.symmetric_difference(previous_candidates))
+                              / max(1, len(selected_now | previous_candidates)))
+        aur_diagnostic_rows.append({
+            "fold": fold["fold"], "decision_time": snapshot_date,
+            "eligible_count": int(reduced["eligible_count"].iloc[0]),
+            "selected_m": int(reduced["selected_m"].iloc[0]),
+            "signal_dispersion": float(reduced["signal_dispersion"].iloc[0]),
+            "relative_signal_dispersion": float(reduced["relative_signal_dispersion"].iloc[0]),
+            "average_abs_correlation": float(reduced["average_abs_correlation"].iloc[0]),
+            "candidate_size_reason": reduced["candidate_size_reason"].iloc[0],
+            "candidate_turnover": candidate_turnover,
+            "selected_tickers": "|".join(sorted(selected_now)),
+        })
+        selection_columns = [
+            "fold", "decision_time", "ticker", "signal", "ewma_signal", "liquidity_20d",
+            "volatility_20d", "signal_z", "liquidity_z", "risk_z", "base_score",
+            "selected_candidate", "decision_reason", "eligible_count", "selected_m",
+            "signal_dispersion", "relative_signal_dispersion", "average_abs_correlation",
+            "candidate_size_reason",
+        ]
+        selection_rows.extend(reduced[selection_columns].to_dict("records"))
         candidates = reduced[reduced.selected_candidate]["ticker"].tolist()
         hist_returns = history[history.ticker.isin(candidates)].pivot(
             index="date", columns="ticker", values="ret1").tail(252).dropna()
@@ -639,39 +1062,63 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         else:
             raise ValueError(f"Unsupported covariance method: {covariance_method}")
         q = qubo_instance(mu, cov, cfg["qubo"]["risk_aversion"])
+        ising_offset, ising_h, ising_j = qubo_to_ising(q)
         k = min(cfg["reduction"]["cardinality"], len(candidates))
         instance_rows.append({
             "fold": fold["fold"], "decision_time": str(snapshot_date),
             "tickers": candidates, "cardinality": k,
             "expected_return": mu.tolist(), "covariance": cov.tolist(), "qubo_matrix": q.tolist(),
+            "ising_offset": ising_offset, "ising_h": ising_h.tolist(),
+            "ising_j": ising_j.tolist(), "binary_spin_convention": "x=(1-z)/2",
             "covariance_method": covariance_method, "covariance_span": covariance_span,
             "holding_horizon_days": holding_horizon,
         })
         exact = exact_solver(q, k)
-        exact_bits = exact["bits"].copy()
-        runs = [
-            exact,
-            simulated_annealing(q, k, cfg["solver"]["seeds"][0]),
-            penalty_qaoa_baseline(q, k, cfg["solver"]["seeds"][0], cfg["solver"]["shots"]),
+        xy_runs = [
+            xy_qaoa_statevector(
+                q, k, cfg["solver"]["qaoa_depth"], cfg["solver"]["parameter_trials"],
+                cfg["solver"]["shots"], seed,
+            ) for seed in cfg["solver"]["seeds"]
+        ]
+        penalty_runs = [
             penalty_qaoa_statevector(
                 q, k, cfg["solver"]["qaoa_depth"], cfg["solver"]["parameter_trials"],
-                cfg["solver"]["shots"], cfg["solver"]["seeds"][0],
-            ),
+                cfg["solver"]["shots"], seed,
+            ) for seed in cfg["solver"]["seeds"]
         ]
-        for seed in cfg["solver"]["seeds"]:
-            runs.append(xy_qaoa_statevector(q, k, cfg["solver"]["qaoa_depth"],
-                        cfg["solver"]["parameter_trials"], cfg["solver"]["shots"], seed))
+        annealing_runs = [
+            simulated_annealing(q, k, seed) for seed in cfg["solver"]["seeds"]
+        ]
+        runs = [
+            exact,
+            *annealing_runs,
+            penalty_qaoa_baseline(q, k, cfg["solver"]["seeds"][0], cfg["solver"]["shots"]),
+            *penalty_runs,
+            *xy_runs,
+        ]
+        chosen_xy = min(xy_runs, key=lambda result: result["expected_energy"])
+        chosen_xy_bits = np.asarray(chosen_xy["bits"]).copy()
         for run in runs:
+            primary_bits = np.asarray(run["bits"]).copy()
             run["fold"] = fold["fold"]
             run["decision_time"] = str(snapshot_date)
             run["optimality_gap"] = float((run["energy"] - exact["energy"]) / (abs(exact["energy"]) + 1e-12))
-            run["selected_tickers"] = [candidates[i] for i in np.flatnonzero(run["bits"])]
-            run["bits"] = "".join(map(str, run["bits"]))
+            run["selected_tickers"] = [candidates[i] for i in np.flatnonzero(primary_bits)]
+            run["bits"] = "".join(map(str, primary_bits))
+            if "best_observed_bits" in run:
+                run["best_observed_bits"] = "".join(map(str, run["best_observed_bits"]))
+                run["best_observed_gap"] = float(
+                    (run["best_observed_energy"] - exact["energy"])
+                    / (abs(exact["energy"]) + 1e-12)
+                )
             run["bitstring_counts"] = json.dumps(run.get("bitstring_counts", {}))
+            run["bitstring_probabilities"] = json.dumps(run.get("bitstring_probabilities", {}))
+            run["parameter_trace"] = json.dumps(run.get("parameter_trace", []))
+            run["optimal_parameters"] = json.dumps(run.get("optimal_parameters", []))
             solver_rows.append(run)
-        chosen = [candidates[i] for i in np.flatnonzero(exact_bits)]
+        chosen = [candidates[i] for i in np.flatnonzero(chosen_xy_bits)]
         idx = [candidates.index(c) for c in chosen]
-        strategy_name = "full_pipeline_exact_selection"
+        strategy_name = "full_pipeline_xy_qaoa"
         previous = previous_weights[strategy_name]
         previous_selected = aligned_previous_weights(chosen, previous)
         weights = optimize_weights(mu[idx], cov[np.ix_(idx, idx)], cfg["weights"]["lower"],
@@ -684,7 +1131,8 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         for ticker in sorted(set(previous) | set(target)):
             w = target.get(ticker, 0.0)
             weight_rows.append({"fold": fold["fold"], "decision_time": snapshot_date,
-                                "ticker": ticker, "weight": w, "pre_trade_weight": previous.get(ticker, 0.0)})
+                                "strategy": strategy_name, "ticker": ticker, "weight": w,
+                                "pre_trade_weight": previous.get(ticker, 0.0)})
             trade_rows.append({"fold": fold["fold"], "trade_time": test.date.min(),
                                "strategy": strategy_name, "ticker": ticker,
                                "pre_trade_weight": previous.get(ticker, 0.0),
@@ -693,30 +1141,58 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                                "transaction_cost": abs(trade_changes[ticker]) * cost})
         test_ret = test[test.ticker.isin(chosen)].pivot(index="date", columns="ticker",
                                                         values="ret1").reindex(columns=chosen).fillna(0)
-        port = test_ret @ weights
-        if len(port):
-            port.iloc[0] -= transaction_cost
-        previous_weights[strategy_name] = drift_weights(target, test_ret)
-        equal = test_ret.mean(axis=1)
-        for date, value in port.items():
-            return_rows.append({"fold": fold["fold"], "date": date, "strategy": "full_pipeline_exact_selection",
-                                "return": value})
-        for date, value in equal.items():
-            return_rows.append({"fold": fold["fold"], "date": date, "strategy": "equal_weight_selected",
-                                "return": value})
+        simulation = simulate_buy_and_hold(target, test_ret, transaction_cost)
+        previous_weights[strategy_name] = simulation["ending_weights"]
+        for date in simulation["net_returns"].index:
+            return_rows.append({
+                "fold": fold["fold"], "date": date, "strategy": strategy_name,
+                "gross_return": simulation["gross_returns"].loc[date],
+                "net_return": simulation["net_returns"].loc[date],
+                "return": simulation["net_returns"].loc[date],
+            })
+        equal_name = "equal_weight_candidates"
+        equal_previous = previous_weights.setdefault(equal_name, {})
+        equal_target = {ticker: 1 / len(candidates) for ticker in candidates}
+        equal_turnover, equal_trades = portfolio_turnover(equal_previous, equal_target)
+        equal_test = test[test.ticker.isin(candidates)].pivot(
+            index="date", columns="ticker", values="ret1"
+        ).reindex(columns=candidates).fillna(0)
+        equal_sim = simulate_buy_and_hold(equal_target, equal_test, cost * equal_turnover)
+        previous_weights[equal_name] = equal_sim["ending_weights"]
+        for ticker, change in equal_trades.items():
+            weight_rows.append({
+                "fold": fold["fold"], "decision_time": snapshot_date,
+                "strategy": equal_name, "ticker": ticker,
+                "weight": equal_target.get(ticker, 0.0),
+                "pre_trade_weight": equal_previous.get(ticker, 0.0),
+            })
+            trade_rows.append({
+                "fold": fold["fold"], "trade_time": test.date.min(), "strategy": equal_name,
+                "ticker": ticker, "pre_trade_weight": equal_previous.get(ticker, 0.0),
+                "target_weight": equal_target.get(ticker, 0.0), "trade_weight": change,
+                "turnover": abs(change), "transaction_cost": abs(change) * cost,
+            })
+        for date in equal_sim["net_returns"].index:
+            return_rows.append({
+                "fold": fold["fold"], "date": date, "strategy": equal_name,
+                "gross_return": equal_sim["gross_returns"].loc[date],
+                "net_return": equal_sim["net_returns"].loc[date],
+                "return": equal_sim["net_returns"].loc[date],
+            })
         # Eight pre-declared ablations use their own candidate construction and solver.
         ablation_specs = [
-            ("01_no_ai_no_quantum", "liquidity", "exact", False),
-            ("02_ewma_classical", "ewma", "exact", False),
-            ("03_xgboost_classical", "xgboost", "exact", False),
-            ("04_adaptive_classical", "adaptive", "exact", False),
-            ("05_xgboost_penalty_qaoa", "xgboost", "penalty", False),
-            ("06_xgboost_xy_qaoa", "xgboost", "xy", False),
-            ("07_adaptive_xy_qaoa", "adaptive", "xy", False),
-            ("08_full_pipeline_costs", "adaptive", "xy", True),
+            ("liquidity_topk_exact", "liquidity", "exact"),
+            ("ewma_topk_exact", "ewma", "exact"),
+            ("xgboost_topk_exact", "xgboost", "exact"),
+            ("adaptive_exact", "adaptive", "exact"),
+            ("xgboost_penalty_qaoa", "xgboost", "penalty"),
+            ("xgboost_xy_qaoa", "xgboost", "xy"),
+            ("adaptive_penalty_qaoa", "adaptive", "penalty"),
+            ("adaptive_xy_qaoa", "adaptive", "xy"),
+            ("adaptive_simulated_annealing", "adaptive", "sa"),
         ]
         m = min(cfg["reduction"]["candidate_size"], len(snap))
-        for ablation_name, selector, solver_name, apply_cost in ablation_specs:
+        for ablation_name, selector, solver_name in ablation_specs:
             if selector == "liquidity":
                 pool = snap.nlargest(m, "liquidity_20d")["ticker"].tolist()
             elif selector == "ewma":
@@ -762,6 +1238,10 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                     max(8, cfg["solver"]["parameter_trials"] // 2),
                     cfg["solver"]["shots"], cfg["solver"]["seeds"][0],
                 )
+            elif solver_name == "sa":
+                chosen_run = simulated_annealing(
+                    variant_q, variant_k, cfg["solver"]["seeds"][0]
+                )
             else:
                 chosen_run = exact_variant
             selected = [pool[i] for i in np.flatnonzero(chosen_run["bits"])]
@@ -777,15 +1257,28 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             variant_test = test[test.ticker.isin(selected)].pivot(
                 index="date", columns="ticker", values="ret1"
             ).reindex(columns=selected).fillna(0)
-            variant_returns = variant_test @ variant_weights
             variant_target = {
                 ticker: float(weight) for ticker, weight in zip(selected, variant_weights)
             }
-            variant_turnover, _ = portfolio_turnover(strategy_previous, variant_target)
-            variant_cost = cost * variant_turnover if apply_cost and len(variant_returns) else 0
-            if len(variant_returns):
-                variant_returns.iloc[0] -= variant_cost
-            previous_weights[ablation_name] = drift_weights(variant_target, variant_test)
+            variant_turnover, variant_trades = portfolio_turnover(strategy_previous, variant_target)
+            variant_cost = cost * variant_turnover
+            variant_sim = simulate_buy_and_hold(variant_target, variant_test, variant_cost)
+            previous_weights[ablation_name] = variant_sim["ending_weights"]
+            for ticker, change in variant_trades.items():
+                weight_rows.append({
+                    "fold": fold["fold"], "decision_time": snapshot_date,
+                    "strategy": ablation_name, "ticker": ticker,
+                    "weight": variant_target.get(ticker, 0.0),
+                    "pre_trade_weight": strategy_previous.get(ticker, 0.0),
+                })
+                trade_rows.append({
+                    "fold": fold["fold"], "trade_time": test.date.min(),
+                    "strategy": ablation_name, "ticker": ticker,
+                    "pre_trade_weight": strategy_previous.get(ticker, 0.0),
+                    "target_weight": variant_target.get(ticker, 0.0),
+                    "trade_weight": change, "turnover": abs(change),
+                    "transaction_cost": abs(change) * cost,
+                })
             gap = (chosen_run["energy"] - exact_variant["energy"]) / (
                 abs(exact_variant["energy"]) + 1e-12
             )
@@ -797,12 +1290,58 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                 "turnover": variant_turnover, "transaction_cost": variant_cost,
                 "covariance_method": covariance_method,
             })
-            for date, value in variant_returns.items():
+            for date in variant_sim["net_returns"].index:
                 return_rows.append({
                     "fold": fold["fold"], "date": date,
-                    "strategy": ablation_name, "return": value,
+                    "strategy": ablation_name,
+                    "gross_return": variant_sim["gross_returns"].loc[date],
+                    "net_return": variant_sim["net_returns"].loc[date],
+                    "return": variant_sim["net_returns"].loc[date],
                 })
-        if fold["fold"] == 0:
+        # Independent classical benchmarks use the complete eligible universe at the
+        # same decision time, schedule, holding convention, and transaction-cost model.
+        benchmark_hist = history[history.ticker.isin(snap["ticker"])].pivot(
+            index="date", columns="ticker", values="ret1"
+        ).tail(252)
+        minimum_observations = min(60, max(2, len(benchmark_hist) // 2))
+        benchmark_hist = benchmark_hist.dropna(axis=1, thresh=minimum_observations).fillna(0.0)
+        benchmark_tickers = benchmark_hist.columns.tolist()
+        if len(benchmark_tickers) >= 2:
+            benchmark_mu, benchmark_cov = ewma_mean_cov(
+                benchmark_hist, covariance_span, holding_horizon
+            )
+            benchmark_test = test[test.ticker.isin(benchmark_tickers)].pivot(
+                index="date", columns="ticker", values="ret1"
+            ).reindex(columns=benchmark_tickers).fillna(0.0)
+            benchmark_targets = {
+                "equal_weight_universe": np.ones(len(benchmark_tickers)) / len(benchmark_tickers),
+                "markowitz_mean_variance": optimize_weights(
+                    benchmark_mu, benchmark_cov, cfg["weights"]["lower"],
+                    cfg["weights"]["upper"], cfg["weights"]["risk_aversion"],
+                    aligned_previous_weights(
+                        benchmark_tickers, previous_weights.get("markowitz_mean_variance", {})
+                    ), cfg["weights"]["turnover_penalty"],
+                ),
+                "minimum_variance": optimize_weights(
+                    np.zeros(len(benchmark_tickers)), benchmark_cov, cfg["weights"]["lower"],
+                    cfg["weights"]["upper"], 1.0,
+                    aligned_previous_weights(
+                        benchmark_tickers, previous_weights.get("minimum_variance", {})
+                    ), cfg["weights"]["turnover_penalty"],
+                ),
+            }
+            for benchmark_name, benchmark_weights in benchmark_targets.items():
+                record_rebalanced_strategy(
+                    benchmark_name, fold,
+                    {ticker: float(weight) for ticker, weight in zip(
+                        benchmark_tickers, benchmark_weights
+                    )}, benchmark_test, previous_weights, cost,
+                    weight_rows, trade_rows, return_rows,
+                )
+        if fold["fold"] in sensitivity_fold_ids:
+            sensitivity_seed = int(
+                sensitivity_seeds[fold["fold"] % len(sensitivity_seeds)]
+            )
             for depth in sorted({1, cfg["solver"]["qaoa_depth"], 2}):
                 for shots in sorted({256, cfg["solver"]["shots"]}):
                     for sensitivity_k in sorted({max(1, k - 1), k}):
@@ -810,21 +1349,76 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                             sensitivity = xy_qaoa_statevector(
                                 q, sensitivity_k, depth,
                                 max(6, cfg["solver"]["parameter_trials"] // 3),
-                                shots, cfg["solver"]["seeds"][0], noise=noise,
+                                shots, sensitivity_seed,
+                                uniform_probability_noise_proxy=noise,
                             )
                             exact_sensitivity = exact_solver(q, sensitivity_k)
+                            sensitivity_selected = [
+                                candidates[i] for i in np.flatnonzero(sensitivity["bits"])
+                            ]
+                            sensitivity_test = test[test.ticker.isin(sensitivity_selected)].pivot(
+                                index="date", columns="ticker", values="ret1"
+                            ).reindex(columns=sensitivity_selected).fillna(0)
+                            sensitivity_target = {
+                                ticker: 1 / len(sensitivity_selected)
+                                for ticker in sensitivity_selected
+                            }
                             for sensitivity_cost in (0, cfg["backtest"]["transaction_cost_bps"], 25):
+                                sensitivity_sim = simulate_buy_and_hold(
+                                    sensitivity_target, sensitivity_test,
+                                    sensitivity_cost / 10000,
+                                )
                                 sensitivity_rows.append({
+                                    "sensitivity_factor": "core_partial_factorial",
                                     "fold": fold["fold"], "depth_p": depth, "shots": shots,
+                                    "seed": sensitivity_seed,
                                     "cardinality": sensitivity_k, "candidate_size": len(candidates),
                                     "qubit_budget": cfg["reduction"]["qubit_budget"],
-                                    "noise": noise, "transaction_cost_bps": sensitivity_cost,
+                                    "uniform_probability_noise_proxy": noise,
+                                    "transaction_cost_bps": sensitivity_cost,
                                     "energy": sensitivity["energy"],
                                     "optimality_gap": (sensitivity["energy"] - exact_sensitivity["energy"]) /
                                                       (abs(exact_sensitivity["energy"]) + 1e-12),
                                     "feasibility_rate": sensitivity["feasibility_rate"],
                                     "runtime_seconds": sensitivity["runtime_seconds"],
+                                    "net_cumulative_return": float(
+                                        (1 + sensitivity_sim["net_returns"]).prod() - 1
+                                    ),
                                 })
+            for sensitivity_n in sorted({max(k, len(candidates) - 2), len(candidates)}):
+                q_reduced = q[:sensitivity_n, :sensitivity_n]
+                k_reduced = min(k, sensitivity_n)
+                size_run = xy_qaoa_statevector(
+                    q_reduced, k_reduced, cfg["solver"]["qaoa_depth"],
+                    max(6, cfg["solver"]["parameter_trials"] // 3),
+                    cfg["solver"]["shots"], sensitivity_seed,
+                )
+                size_exact = exact_solver(q_reduced, k_reduced)
+                size_selected = [
+                    candidates[:sensitivity_n][i] for i in np.flatnonzero(size_run["bits"])
+                ]
+                size_test = test[test.ticker.isin(size_selected)].pivot(
+                    index="date", columns="ticker", values="ret1"
+                ).reindex(columns=size_selected).fillna(0)
+                size_target = {ticker: 1 / len(size_selected) for ticker in size_selected}
+                size_sim = simulate_buy_and_hold(
+                    size_target, size_test, cfg["backtest"]["transaction_cost_bps"] / 10000
+                )
+                sensitivity_rows.append({
+                    "sensitivity_factor": "candidate_size_and_qubit_budget",
+                    "fold": fold["fold"], "depth_p": cfg["solver"]["qaoa_depth"],
+                    "shots": cfg["solver"]["shots"], "seed": sensitivity_seed,
+                    "cardinality": k_reduced, "candidate_size": sensitivity_n,
+                    "qubit_budget": sensitivity_n,
+                    "uniform_probability_noise_proxy": 0.0,
+                    "transaction_cost_bps": cfg["backtest"]["transaction_cost_bps"],
+                    "energy": size_run["energy"],
+                    "optimality_gap": (size_run["energy"] - size_exact["energy"])
+                    / (abs(size_exact["energy"]) + 1e-12),
+                    "feasibility_rate": size_run["feasibility_rate"],
+                    "runtime_seconds": size_run["runtime_seconds"],
+                    "net_cumulative_return": float((1 + size_sim["net_returns"]).prod() - 1),
+                })
     rankings = pd.DataFrame(ranking_rows)
     selections = pd.DataFrame(selection_rows)
     solvers = pd.DataFrame(solver_rows)
@@ -837,9 +1431,19 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     )
     weights_df.to_csv(out / "weights.csv", index=False)
     trades.to_csv(out / "trades.csv", index=False)
+    cost_ledger = trades.groupby(["fold", "strategy"], as_index=False).agg(
+        turnover=("turnover", "sum"), transaction_cost=("transaction_cost", "sum")
+    ) if not trades.empty else pd.DataFrame(
+        columns=["fold", "strategy", "turnover", "transaction_cost"]
+    )
+    cost_ledger.to_csv(out / "cost_ledger.csv", index=False)
     returns.to_csv(out / "portfolio_returns.csv", index=False)
     pd.DataFrame(ablation_rows).to_csv(out / "ablation_results.csv", index=False)
     pd.DataFrame(sensitivity_rows).to_csv(out / "sensitivity_results.csv", index=False)
+    pd.DataFrame(fold_audit_rows).to_csv(out / "fold_manifest.csv", index=False)
+    pd.DataFrame(feature_coverage_rows).to_csv(out / "feature_coverage_by_fold.csv", index=False)
+    pd.DataFrame(tuning_rows).to_csv(out / "model_tuning.csv", index=False)
+    pd.DataFrame(aur_diagnostic_rows).to_csv(out / "aur_diagnostics.csv", index=False)
     metric_rows = []
     for strategy, g in returns.groupby("strategy"):
         metrics = financial_metrics(g.sort_values("date")["return"], cfg["backtest"]["risk_free_annual"])
@@ -874,15 +1478,25 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     comparisons.to_csv(out / "comparisons.csv", index=False)
     tests = []
     returns_wide = returns.pivot_table(index="date", columns="strategy", values="return", aggfunc="mean")
-    if "08_full_pipeline_costs" in returns_wide:
-        for baseline in ["01_no_ai_no_quantum", "02_ewma_classical", "03_xgboost_classical",
-                         "04_adaptive_classical"]:
+    if "full_pipeline_xy_qaoa" in returns_wide:
+        for baseline in ["equal_weight_universe", "markowitz_mean_variance", "minimum_variance",
+                         "liquidity_topk_exact", "ewma_topk_exact", "adaptive_exact",
+                         "adaptive_simulated_annealing", "adaptive_penalty_qaoa"]:
             if baseline in returns_wide:
                 result = paired_block_bootstrap_test(
-                    returns_wide["08_full_pipeline_costs"], returns_wide[baseline], cfg["seed"]
+                    returns_wide["full_pipeline_xy_qaoa"], returns_wide[baseline], cfg["seed"]
                 )
-                result.update({"test": f"08_full_pipeline_costs_vs_{baseline}"})
+                result.update({"test": f"full_pipeline_xy_qaoa_vs_{baseline}",
+                               "hypothesis": "H5"})
                 tests.append(result)
+    fold_ic = rankings.groupby("fold")[["xgboost_rank_ic", "ewma_rank_ic"]].first().dropna()
+    if len(fold_ic) >= 2:
+        result = paired_block_bootstrap_test(
+            fold_ic["xgboost_rank_ic"], fold_ic["ewma_rank_ic"], cfg["seed"],
+            samples=1000, block=max(1, min(3, len(fold_ic) // 2)),
+        )
+        result.update({"test": "xgboost_rank_ic_vs_ewma_rank_ic", "hypothesis": "H1"})
+        tests.append(result)
     finite_indices = [i for i, row in enumerate(tests) if np.isfinite(row["p_value"])]
     adjusted = holm_adjust([tests[i]["p_value"] for i in finite_indices])
     for i, value in zip(finite_indices, adjusted):
@@ -921,13 +1535,39 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         f"- Status: `{leak['status']}`\n- Blockers: `{leak['blockers']}`\n\n"
         f"{leak['note']}\n", encoding="utf-8"
     )
-    env = f"python={sys.version}\nplatform={platform.platform()}\n"
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=project_root, text=True
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        git_commit = "unknown"
+    env = f"python={sys.version}\nplatform={platform.platform()}\ngit_commit={git_commit}\n"
     (out / "environment.txt").write_text(env, encoding="utf-8")
+    provenance = {
+        "price_sources": prices.groupby(
+            ["source", "source_url", "data_class"], dropna=False
+        ).size().reset_index(name="records").to_dict("records"),
+        "price_dataset_sha256": sha256_file(paths.normalized / "prices.parquet"),
+        "universe_dataset_sha256": sha256_file(paths.curated / "universe_monthly.parquet"),
+        "source_manifest": str(paths.raw / "manifest.json"),
+    }
+    (out / "data_provenance.json").write_text(
+        json.dumps(provenance, indent=2, default=str), encoding="utf-8"
+    )
+    actual_oos_start = str(pd.to_datetime(returns["date"]).min().date()) if not returns.empty else None
+    actual_oos_end = str(pd.to_datetime(returns["date"]).max().date()) if not returns.empty else None
     manifest = {
-        "experiment_id": experiment_id, "status": "success", "label": cfg["label"],
+        "experiment_id": experiment_id, "status": "success", "mode": cfg.get("mode"),
+        "label": cfg["label"],
         "data_class": quality["data_class"], "started_from_config": str(config_path),
         "created_at": datetime.now(timezone.utc).isoformat(), "config_hash": cfg_hash,
         "dataset_hash": sha256_file(paths.normalized / "prices.parquet"),
+        "universe_hash": sha256_file(paths.curated / "universe_monthly.parquet"),
+        "git_commit": git_commit,
+        "requested_data_start": cfg.get("data", {}).get("start"),
+        "requested_data_end": cfg.get("data", {}).get("end"),
+        "actual_data_start": quality.get("start"), "actual_data_end": quality.get("end"),
+        "actual_oos_start": actual_oos_start, "actual_oos_end": actual_oos_end,
         "folds_requested": len(folds), "folds_completed": int(returns["fold"].nunique()) if not returns.empty else 0,
         "artifacts": [],
     }
@@ -945,11 +1585,13 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         f"- Limitations: {', '.join(leak.get('limitations', [])) or 'none reported'}.",
         "", "## Artifact index", "",
     ]
-    current = sorted(str(p.relative_to(out)) for p in out.rglob("*") if p.is_file())
+    current = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
     run_report.extend(f"- `{name}`" for name in current)
     run_report_name = "RUN_REPORT.md" if cfg.get("mode") == "research" else "DEMO_RUN_REPORT.md"
     (out / run_report_name).write_text("\n".join(run_report) + "\n", encoding="utf-8")
-    manifest["artifacts"] = sorted(str(p.relative_to(out)) for p in out.rglob("*") if p.is_file())
+    manifest["artifacts"] = sorted(
+        p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()
+    )
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return out
 
@@ -973,13 +1615,25 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
     statistics = pd.read_csv(out / "statistical_tests.csv") if (out / "statistical_tests.csv").exists() else pd.DataFrame()
     regimes = pd.read_csv(out / "regime_metrics.csv") if (out / "regime_metrics.csv").exists() else pd.DataFrame()
     is_research = cfg.get("mode") == "research"
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    h1_test = (statistics[statistics["hypothesis"] == "H1"]
+               if "hypothesis" in statistics else pd.DataFrame())
+    h5_tests = (statistics[statistics["hypothesis"] == "H5"]
+                if "hypothesis" in statistics else pd.DataFrame())
+    interpretation_prefix = "research" if is_research else "demo-only"
     hypotheses = [
-        ("H1", "descriptive", f"Mean walk-forward fold rank IC={ic:.4f}."),
-        ("H2", "inconclusive", "Adaptive selection executed, but superiority requires independent replication."),
-        ("H3", "implementation-supported", "Fixed-weight XY simulation feasibility is one by construction."),
-        ("H4", "descriptive", "Optimization gaps are reported for the configured reduced instances."),
-        ("H5", "descriptive", "Walk-forward performance includes configured costs; it is not investment advice."),
-        ("H6", "descriptive", "Sensitivity is limited to the pre-declared grid in the resolved config."),
+        ("H1", interpretation_prefix,
+         f"Mean XGBoost walk-forward Rank IC={ic:.4f}; paired XGBoost–EWMA test rows={len(h1_test)}."),
+        ("H2", interpretation_prefix,
+         "AUR diagnostics report signal, liquidity, risk, correlation, selected M and candidate turnover; causal superiority is not inferred."),
+        ("H3", "implementation-supported" if is_research else "demo-only",
+         "Fixed-weight XY simulation preserves cardinality by construction; penalty feasibility is measured from samples."),
+        ("H4", interpretation_prefix,
+         "Primary-solution and best-observed gaps are separated against the exact small-instance oracle."),
+        ("H5", interpretation_prefix,
+         f"Net buy-and-hold performance uses common costs; paired benchmark comparisons={len(h5_tests)}."),
+        ("H6", interpretation_prefix,
+         "Sensitivity reruns solver/accounting on the declared grid and representative folds; inference is conditional on that grid."),
     ]
     title = "AI–Quantum Portfolio Research Report" if is_research else "AI–Quantum Portfolio Demo Report"
     scope = (
@@ -993,7 +1647,12 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
         scope,
         "", "## Data validation", "", f"- Quality: `{quality['status']}`",
         f"- Leakage audit: `{leak['status']}`", f"- Records: {quality['records']}",
-        f"- Tickers: {quality['tickers']}", "", "## Predictive ranking", "",
+        f"- Tickers: {quality['tickers']}",
+        f"- Requested range: {manifest.get('requested_data_start')} to {manifest.get('requested_data_end')}",
+        f"- Actual data range: {manifest.get('actual_data_start')} to {manifest.get('actual_data_end')}",
+        f"- Actual OOS range: {manifest.get('actual_oos_start')} to {manifest.get('actual_oos_end')}",
+        f"- Folds completed/requested: {manifest.get('folds_completed')}/{manifest.get('folds_requested')}",
+        "", "## Predictive ranking", "",
         f"- Mean fold rank IC: {ic:.6f}", "", "## Solver comparison", "",
         markdown_table(comparisons),
         "", "## Portfolio metrics", "",
@@ -1009,7 +1668,8 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
         ) if not ablations.empty else "No ablation results.",
         "", "## Robustness and sensitivity", "",
         markdown_table(
-            sensitivity.groupby(["depth_p", "shots", "cardinality", "noise", "transaction_cost_bps"]).agg(
+            sensitivity.groupby(["depth_p", "shots", "cardinality",
+                                 "uniform_probability_noise_proxy", "transaction_cost_bps"]).agg(
                 optimality_gap=("optimality_gap", "mean"),
                 feasibility_rate=("feasibility_rate", "mean"),
                 runtime_seconds=("runtime_seconds", "mean"),
@@ -1025,10 +1685,10 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
         lines.append(f"- **{h}: {status}.** {reason}")
     if is_research:
         limitations = [
-            "- The universe is selected from the current HOSE listing and therefore may contain survivorship bias for historical dates.",
+            "- Research execution requires a verified historical universe; current-listing or first-price proxies are blocked before this report can be produced.",
             "- Optional point-in-time fundamentals, macroeconomic data, foreign flow and corporate actions are excluded when verified real tables are unavailable.",
             "- The XY-QAOA implementation is an ideal fixed-Hamming-weight statevector simulator, not quantum hardware.",
-            "- The penalty comparator is a transparent stochastic penalty baseline, not a QAOA circuit.",
+            "- Penalty-QAOA and XY-QAOA are ideal internal statevector simulations, not quantum hardware.",
             "- Statistical results are conditional on the selected period, universe, costs and model specification; they are not investment advice or proof of quantum advantage.",
         ]
         reproduce = "python -m src.cli run-experiment --config configs/hose300_real.yaml"
@@ -1036,7 +1696,7 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
         limitations = [
             "- Data are deterministic fixtures, explicitly not real HOSE observations.",
             "- The XY-QAOA implementation is an ideal fixed-Hamming-weight statevector simulator, not quantum hardware.",
-            "- The penalty comparator is a transparent stochastic penalty baseline, not a QAOA circuit.",
+            "- Penalty-QAOA and XY-QAOA are ideal internal statevector simulations, not quantum hardware.",
             "- Robustness, regimes and statistical tests are implemented, but fixture results are not confirmatory evidence.",
         ]
         reproduce = "python -m src.cli run-experiment --config configs/quick.yaml"

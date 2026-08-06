@@ -835,13 +835,15 @@ def merge_hose_checkpoints(paths: Paths, target_tickers: int = 300) -> dict:
     quarantine = prices.loc[bad_ohlc].copy()
     quarantine.to_csv(paths.normalized / "ohlc_quarantine.csv", index=False)
     prices = prices.loc[~bad_ohlc].copy()
-    # The daily research clock treats a bar as available at that session's EOD.
-    prices["available_at"] = pd.to_datetime(prices["date"]).dt.normalize()
+    # Preserve the source adapter's availability timestamp. Replacing it with the
+    # observation date would erase the observation/availability distinction.
+    prices["available_at"] = pd.to_datetime(prices["available_at"], errors="coerce")
     paths.normalized.mkdir(parents=True, exist_ok=True)
     prices.to_parquet(paths.normalized / "prices.parquet", index=False)
     prices.to_csv(paths.normalized / "prices.csv", index=False)
 
     selected_listing = listing.set_index("Symbol").reindex(selected).reset_index()
+    first_price = prices.groupby("ticker").first().reindex(selected)
     master = pd.DataFrame({
         "ticker": selected_listing["Symbol"],
         "company_name": selected_listing.get("Name", selected_listing["Symbol"]),
@@ -856,6 +858,10 @@ def merge_hose_checkpoints(paths: Paths, target_tickers: int = 300) -> dict:
         "effective_to": pd.NaT,
         "available_at": prices.groupby("ticker")["date"].min().reindex(selected).values,
         "source": [source_for[symbol] for symbol in selected],
+        "source_url": first_price["source_url"].values,
+        "fetched_at": first_price["fetched_at"].values,
+        "raw_checksum": first_price["raw_checksum"].values,
+        "history_method": "first_price_observation_proxy",
         "data_class": "real",
     })
     master.to_parquet(paths.normalized / "security_master.parquet", index=False)
@@ -950,11 +956,25 @@ def import_point_in_time_table(
         df = pd.read_parquet(input_path)
     else:
         df = pd.read_csv(input_path)
+    required = set(required) | {"source", "source_url"}
     missing = sorted(required - set(df.columns))
     if missing:
         raise ValueError(f"{table_name} missing required point-in-time fields: {missing}")
     for col in [c for c in df.columns if c.endswith("_date") or c in {"available_at", "effective_from", "effective_to"}]:
         df[col] = pd.to_datetime(df[col], errors="coerce")
+    temporal_origins = {
+        "corporate_actions": "announcement_date",
+        "financial_statements": "fiscal_period_end",
+        "macro": "observation_date",
+        "foreign_flow": "date",
+    }
+    origin = temporal_origins.get(table_name)
+    if origin and origin in df and (df["available_at"] < pd.to_datetime(df[origin])).any():
+        raise ValueError(f"{table_name} has available_at before {origin}")
+    checksum = hashlib.sha256(input_path.read_bytes()).hexdigest()
+    df["fetched_at"] = pd.to_datetime(df.get("fetched_at", datetime.now(timezone.utc)))
+    df["raw_checksum"] = df.get("raw_checksum", checksum)
+    df["data_class"] = df.get("data_class", "real")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(output_path, index=False)
     return {"table": table_name, "records": len(df), "output": str(output_path)}

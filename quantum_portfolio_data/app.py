@@ -16,6 +16,16 @@ if not experiments:
 selected = st.sidebar.selectbox("Experiment", experiments, format_func=lambda p: p.name)
 manifest = json.loads((selected / "manifest.json").read_text(encoding="utf-8"))
 st.sidebar.json(manifest)
+if manifest.get("status") == "blocked":
+    st.error("Research run was blocked before training/backtesting. No research metrics were produced.")
+    st.write("Blockers:", manifest.get("blockers", []))
+    if (selected / "RESEARCH_BLOCKED.md").exists():
+        st.markdown((selected / "RESEARCH_BLOCKED.md").read_text(encoding="utf-8"))
+    st.download_button(
+        "Download blocker manifest", (selected / "manifest.json").read_bytes(),
+        file_name="manifest.json",
+    )
+    st.stop()
 tab_names = ["Overview", "Data Quality", "Ranking & Reduction", "Solver Comparison",
              "Portfolio & Backtest", "Ablation & Robustness", "Reproducibility"]
 tabs = st.tabs(tab_names)
@@ -46,6 +56,12 @@ with tabs[4]:
         curve = returns.pivot_table(index="date", columns="strategy", values="return", aggfunc="mean")
         st.line_chart((1 + curve).cumprod())
     st.dataframe(pd.read_csv(selected / "weights.csv"), width="stretch")
+    st.subheader("Trading constraints and realized costs")
+    st.caption(
+        "Long-only, fully invested, configured weight bounds; weights drift buy-and-hold "
+        "between rebalances. The same turnover-based cost policy applies to all strategies."
+    )
+    st.dataframe(pd.read_csv(selected / "cost_ledger.csv"), width="stretch")
     regime_path = selected / "regime_metrics.csv"
     if regime_path.exists():
         st.subheader("Trailing-information market regimes")
