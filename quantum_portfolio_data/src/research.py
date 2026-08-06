@@ -1189,6 +1189,9 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             paths, cfg.get("data", {}).get("rebalance", "monthly"),
             universe_cfg.get("definition", "hose_all_listed"),
             universe_cfg.get("index_code"),
+            universe_cfg.get("max_assets"),
+            universe_cfg.get("liquidity_lookback_days", 60),
+            universe_cfg.get("minimum_observations", 40),
         )
     except (ValueError, KeyError) as exc:
         # The leakage audit below will capture a missing/invalid universe contract.
@@ -1209,11 +1212,16 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             required_benchmark_columns = {
                 "date", "benchmark", "total_return_index", "available_at",
                 "source", "source_url", "fetched_at", "raw_checksum", "data_class",
+                "index_type", "methodology_url",
             }
             benchmark_valid = bool(
                 not benchmark_check.empty
                 and required_benchmark_columns <= set(benchmark_check.columns)
                 and not benchmark_check["data_class"].astype(str).eq("fixture").any()
+                and benchmark_check["index_type"].astype(str).str.lower().eq("total_return").all()
+                and benchmark_check["methodology_url"].astype(str).str.startswith(
+                    ("http://", "https://")
+                ).all()
                 and (pd.to_datetime(benchmark_check["available_at"], errors="coerce")
                      >= pd.to_datetime(benchmark_check["date"], errors="coerce")).all()
             )
@@ -1973,6 +1981,75 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     # Re-write after adding backwards-compatible zero component columns.
     trades.to_csv(out / "trades.csv", index=False)
     cost_ledger.to_csv(out / "cost_ledger.csv", index=False)
+    main_weights = weights_df[weights_df.get("strategy", pd.Series(dtype=str)).eq(
+        "full_pipeline_xy_qaoa"
+    )].copy()
+    main_trades = trades[trades.get("strategy", pd.Series(dtype=str)).eq(
+        "full_pipeline_xy_qaoa"
+    )].copy()
+    selected_assets = selections[selections.get(
+        "selected_candidate", pd.Series(dtype=bool)
+    ).astype(bool)].copy()
+    if not selected_assets.empty:
+        selected_assets = selected_assets.merge(
+            main_weights[["fold", "ticker", "weight", "pre_trade_weight"]],
+            on=["fold", "ticker"], how="left",
+        ).merge(
+            main_trades[["fold", "ticker", "trade_weight", "transaction_cost"]],
+            on=["fold", "ticker"], how="left",
+        )
+        master_columns = [column for column in [
+            "ticker", "security_id", "company_name", "sector"
+        ] if column in security_master.columns]
+        master_lookup = security_master.drop_duplicates("ticker", keep="last")[master_columns]
+        selected_assets = selected_assets.merge(master_lookup, on="ticker", how="left")
+        selected_assets["target_weight"] = selected_assets["weight"].fillna(0.0)
+        selected_assets["previous_weight"] = selected_assets["pre_trade_weight"].fillna(0.0)
+        selected_assets["trade_weight"] = selected_assets["trade_weight"].fillna(0.0)
+        selected_assets["selected_by_solver"] = selected_assets["target_weight"] > 1e-12
+        notional = float(cfg.get("constraints", {}).get("portfolio_notional_vnd") or 0.0)
+        selected_assets["estimated_cost"] = (
+            selected_assets["transaction_cost"].fillna(0.0) * notional
+        )
+        selected_assets["adv_participation"] = np.where(
+            selected_assets["adv_20d"].fillna(0.0) > 0,
+            selected_assets["trade_weight"].abs() * notional / selected_assets["adv_20d"],
+            np.nan,
+        )
+        selected_assets["selection_reason"] = np.where(
+            selected_assets["selected_by_solver"],
+            "selected_by_xy_qaoa_then_classical_weighting",
+            "aur_candidate_not_selected_by_xy_qaoa",
+        )
+    selected_assets.to_csv(out / "selected_assets_by_fold.csv", index=False)
+    latest_columns = [
+        "fold", "decision_time", "ticker", "security_id", "company_name", "sector",
+        "signal", "xgboost_expected_return", "selected_by_solver", "target_weight",
+        "previous_weight", "trade_weight", "estimated_cost", "liquidity_20d", "adv_20d",
+        "adv_participation", "selection_reason",
+    ]
+    latest = pd.DataFrame(columns=latest_columns)
+    if not selected_assets.empty:
+        latest_fold = selected_assets["fold"].max()
+        latest = selected_assets[
+            (selected_assets["fold"] == latest_fold) & selected_assets["selected_by_solver"]
+        ].reindex(columns=latest_columns).sort_values("target_weight", ascending=False)
+    latest.to_csv(out / "latest_selected_portfolio.csv", index=False)
+    latest_md = ["# Latest selected portfolio", ""]
+    if latest.empty:
+        latest_md.append("No completed research portfolio.")
+    else:
+        view = latest[["ticker", "company_name", "sector", "target_weight", "signal", "estimated_cost"]].copy()
+        latest_md.extend([
+            "| " + " | ".join(view.columns) + " |",
+            "| " + " | ".join(["---"] * len(view.columns)) + " |",
+        ])
+        latest_md.extend(
+            "| " + " | ".join(map(str, row)) + " |" for row in view.to_numpy()
+        )
+    (out / "latest_selected_portfolio.md").write_text(
+        "\n".join(latest_md) + "\n", encoding="utf-8"
+    )
     returns.to_csv(out / "portfolio_returns.csv", index=False)
     pd.DataFrame(ablation_rows).to_csv(out / "ablation_results.csv", index=False)
     pd.DataFrame(sensitivity_rows).to_csv(out / "sensitivity_results.csv", index=False)
@@ -2000,6 +2077,12 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         metric_rows.append(metrics)
     metrics_df = pd.DataFrame(metric_rows)
     metrics_df.to_csv(out / "metrics_long.csv", index=False)
+    cost_summary = cost_ledger.groupby("strategy", as_index=False).agg(
+        turnover=("turnover", "sum"), total_cost=("transaction_cost", "sum")
+    ) if not cost_ledger.empty else pd.DataFrame(columns=["strategy", "turnover", "total_cost"])
+    metrics_df.merge(cost_summary, on="strategy", how="left").to_csv(
+        out / "strategy_metrics_summary.csv", index=False
+    )
     # Descriptive regime analysis uses only trailing market information.
     market_daily = (
         prices.pivot(index="date", columns="ticker", values="ret1").mean(axis=1).sort_index()
@@ -2107,10 +2190,32 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     for row in tests:
         row.setdefault("p_value_holm", np.nan)
         row.setdefault("conclusion", "insufficient_observations")
-    pd.DataFrame(tests or [{"test": "no_valid_pair", "p_value": np.nan,
-                            "conclusion": "insufficient_observations"}]).to_csv(
-        out / "statistical_tests.csv", index=False
-    )
+    tests_frame = pd.DataFrame(tests or [{
+        "test": "no_valid_pair", "hypothesis": "none", "p_value": np.nan,
+        "p_value_holm": np.nan, "conclusion": "insufficient_observations",
+    }])
+    tests_frame.to_csv(out / "statistical_tests.csv", index=False)
+    hypothesis_rows = []
+    for hypothesis in ["H1", "H2", "H3", "H4", "H5"]:
+        subset = tests_frame[tests_frame.get("hypothesis", pd.Series(dtype=str)).eq(hypothesis)]
+        if subset.empty:
+            status = "insufficient_observations"
+        elif subset["conclusion"].eq("significant").any():
+            status = "statistically_supported_on_declared_tests"
+        else:
+            status = "not_statistically_supported"
+        hypothesis_rows.append({
+            "hypothesis": hypothesis, "status": status,
+            "tests": "|".join(subset.get("test", pd.Series(dtype=str)).astype(str)),
+            "interpretation_scope": "conditional_on_period_universe_costs_and_model_specification",
+        })
+    hypothesis_rows.append({
+        "hypothesis": "H6",
+        "status": "sensitivity_completed" if sensitivity_rows else "insufficient_observations",
+        "tests": "declared_sensitivity_grid",
+        "interpretation_scope": "no_claim_outside_tested_grid",
+    })
+    pd.DataFrame(hypothesis_rows).to_csv(out / "hypothesis_results.csv", index=False)
     if not returns.empty:
         pivot = returns.pivot_table(index="date", columns="strategy", values="return", aggfunc="mean")
         chart_title = (
@@ -2122,6 +2227,58 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         plt.ylabel("Growth of 1 unit")
         plt.tight_layout()
         plt.savefig(fig_dir / "equity_curve.png", dpi=160)
+        plt.close()
+        wealth = (1 + pivot).cumprod()
+        drawdown = wealth.div(wealth.cummax()).sub(1)
+        drawdown.plot(title="Walk-forward drawdown")
+        plt.ylabel("Drawdown")
+        plt.tight_layout()
+        plt.savefig(fig_dir / "drawdown.png", dpi=160)
+        plt.close()
+    if not metrics_df.empty:
+        metrics_df.plot.scatter(
+            x="annualized_volatility", y="annualized_return", c="sharpe",
+            colormap="viridis", title="Risk-return comparison",
+        )
+        for row in metrics_df.itertuples():
+            plt.annotate(str(row.strategy), (row.annualized_volatility, row.annualized_return), fontsize=6)
+        plt.tight_layout()
+        plt.savefig(fig_dir / "risk_return.png", dpi=160)
+        plt.close()
+    if not comparisons.empty:
+        comparisons.set_index("method")[["feasibility_rate"]].plot.bar(
+            title="Solver feasibility rate", legend=False
+        )
+        plt.tight_layout()
+        plt.savefig(fig_dir / "feasibility_rate.png", dpi=160)
+        plt.close()
+        comparisons.set_index("method")[["optimality_gap_mean"]].plot.bar(
+            title="Mean optimality gap", legend=False
+        )
+        plt.tight_layout()
+        plt.savefig(fig_dir / "optimality_gap.png", dpi=160)
+        plt.close()
+    if not cost_ledger.empty:
+        cost_ledger.groupby("strategy")[["turnover", "transaction_cost"]].sum().plot.bar(
+            secondary_y="transaction_cost", title="Turnover and transaction cost"
+        )
+        plt.tight_layout()
+        plt.savefig(fig_dir / "turnover_and_cost.png", dpi=160)
+        plt.close()
+    if not rankings.empty:
+        rankings.groupby("fold")[["xgboost_rank_ic", "ewma_rank_ic"]].first().plot(
+            marker="o", title="Rank IC by fold"
+        )
+        plt.tight_layout()
+        plt.savefig(fig_dir / "rank_ic_by_fold.png", dpi=160)
+        plt.close()
+    sensitivity_frame = pd.DataFrame(sensitivity_rows)
+    if not sensitivity_frame.empty:
+        sensitivity_frame.groupby("depth_p")[["optimality_gap", "feasibility_rate"]].mean().plot(
+            marker="o", title="QAOA sensitivity by depth"
+        )
+        plt.tight_layout()
+        plt.savefig(fig_dir / "sensitivity_analysis.png", dpi=160)
         plt.close()
     (out / "resolved_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
     (out / "data_quality.json").write_text(json.dumps(quality, indent=2), encoding="utf-8")
@@ -2139,7 +2296,8 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     )
     try:
         git_commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=project_root, text=True
+            ["git", "rev-parse", "HEAD"], cwd=config_path.parent,
+            text=True, stderr=subprocess.DEVNULL,
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         git_commit = "unknown"

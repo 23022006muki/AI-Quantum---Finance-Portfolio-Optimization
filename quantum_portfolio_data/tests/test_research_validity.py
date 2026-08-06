@@ -320,6 +320,40 @@ def test_point_in_time_import_requires_source_url(tmp_path: Path):
         )
 
 
+def test_benchmark_import_rejects_price_index_masquerading_as_total_return(tmp_path: Path):
+    source = tmp_path / "benchmark.csv"
+    pd.DataFrame([{
+        "date": "2022-01-03", "benchmark": "VNINDEX", "total_return_index": 1000,
+        "index_type": "price", "methodology_url": "https://example.test/method",
+        "available_at": "2022-01-04", "source": "provider",
+        "source_url": "https://example.test/data",
+    }]).to_csv(source, index=False)
+    with pytest.raises(ValueError, match="total_return"):
+        import_point_in_time_table(
+            source, tmp_path / "outputs" / "normalized" / "benchmark.parquet",
+            {"date", "benchmark", "total_return_index", "index_type", "methodology_url",
+             "available_at", "source", "source_url"}, "benchmark",
+        )
+
+
+def test_security_master_import_requires_stable_security_id(tmp_path: Path):
+    source = tmp_path / "master.csv"
+    pd.DataFrame([{
+        "security_id": "", "ticker": "AAA", "exchange": "HOSE",
+        "listing_date": "2022-01-01", "delisting_date": None,
+        "effective_from": "2022-01-01", "effective_to": None,
+        "available_at": "2021-12-20", "history_method": "exchange_listing_history",
+        "source": "official", "source_url": "https://example.test/listing",
+    }]).to_csv(source, index=False)
+    with pytest.raises(ValueError, match="security_id"):
+        import_point_in_time_table(
+            source, tmp_path / "outputs" / "normalized" / "security_master.parquet",
+            {"security_id", "ticker", "exchange", "listing_date", "delisting_date",
+             "effective_from", "effective_to", "available_at", "history_method",
+             "source", "source_url"}, "security_master",
+        )
+
+
 def test_successful_research_mode_run_is_auditable_and_tamper_evident(tmp_path: Path):
     paths = Paths(tmp_path)
     generate_fixture(

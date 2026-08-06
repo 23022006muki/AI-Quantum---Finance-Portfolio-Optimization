@@ -1,0 +1,2 @@
+ticker,security_id,event_type,announcement_date,effective_date,ex_date,record_date,payment_date,cash_dividend,split_ratio,rights_ratio,issue_price,adjustment_factor,available_at,source,source_url
+AAA,VN000000AAA0,cash_dividend,2023-03-01,2023-03-20,2023-03-20,2023-03-21,2023-04-03,1000,,,,,2023-03-01,official_exchange,https://documented-source.example/corporate-action

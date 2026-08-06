@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,7 +13,7 @@ import pandas as pd
 
 
 PRICE_COLUMNS = [
-    "date", "ticker", "open", "high", "low", "close", "adjusted_close", "volume",
+    "date", "ticker", "security_id", "open", "high", "low", "close", "adjusted_close", "volume",
     "trading_value", "source", "source_url", "fetched_at", "available_at",
     "raw_checksum", "parser_version", "data_class", "adjustment_policy",
 ]
@@ -21,6 +23,7 @@ HISTORICAL_UNIVERSE_METHODS = {
     "official_event_history",
     "exchange_listing_history",
     "verified_membership_history",
+    "verified_provider_history",
     "fixture",
 }
 VERIFIED_ADJUSTMENT_POLICIES = {
@@ -59,9 +62,43 @@ class Paths:
     def reports(self) -> Path:
         return self.root / "outputs" / "reports"
 
+    @property
+    def staging(self) -> Path:
+        return self.root / "outputs" / "staging"
+
     def ensure(self) -> None:
-        for p in (self.raw, self.normalized, self.curated, self.reports):
+        for p in (self.raw, self.normalized, self.curated, self.reports, self.staging):
             p.mkdir(parents=True, exist_ok=True)
+
+
+def create_staging_run(paths: Paths, source: str) -> Path:
+    """Create a versioned collection directory without touching normalized data."""
+    paths.ensure()
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run = paths.staging / f"{stamp}-{source}-{uuid.uuid4().hex[:8]}"
+    run.mkdir(parents=True, exist_ok=False)
+    return run
+
+
+def promote_staged_file(paths: Paths, staged_file: Path, target_name: str) -> dict:
+    """Atomically promote one validated file and retain a recoverable previous copy."""
+    if not staged_file.is_file():
+        raise FileNotFoundError(staged_file)
+    paths.normalized.mkdir(parents=True, exist_ok=True)
+    target = paths.normalized / target_name
+    archive = paths.root / "outputs" / "archive" / datetime.now().strftime("%Y%m%dT%H%M%S")
+    backup = None
+    if target.exists():
+        archive.mkdir(parents=True, exist_ok=True)
+        backup = archive / target.name
+        shutil.copy2(target, backup)
+    temporary = target.with_name(f".{target.name}.promoting")
+    shutil.copy2(staged_file, temporary)
+    temporary.replace(target)
+    return {
+        "target": str(target), "sha256": sha256_file(target),
+        "backup": str(backup) if backup else None,
+    }
 
 
 def quarantine_fixture_auxiliary(paths: Paths) -> list[str]:
@@ -158,6 +195,7 @@ def generate_fixture(
         frame = pd.DataFrame({
             "date": dates,
             "ticker": ticker,
+            "security_id": f"FIXTURE:{ticker}",
             "open": open_,
             "high": high,
             "low": low,
@@ -168,7 +206,8 @@ def generate_fixture(
         })
         frames.append(frame)
         master.append({
-            "ticker": ticker, "company_name": f"Fixture Company {ticker}",
+            "security_id": f"FIXTURE:{ticker}", "ticker": ticker,
+            "company_name": f"Fixture Company {ticker}",
             "exchange": "HOSE_FIXTURE", "industry": f"Industry {i % 4}",
             "sector": f"Sector {i % 3}", "listing_date": dates[0],
             "delisting_date": pd.NaT, "effective_from": dates[0],
@@ -263,6 +302,7 @@ def import_csv(paths: Paths, input_path: Path, source: str, source_url: str) -> 
         raise ValueError(f"Missing required columns: {missing}")
     checksum = sha256_file(input_path)
     df["date"] = pd.to_datetime(df["date"])
+    df["security_id"] = df.get("security_id", df["ticker"].map(lambda x: f"TICKER:{x}"))
     df["adjusted_close"] = df.get("adjusted_close", df["close"])
     df["trading_value"] = df.get("trading_value", df["volume"] * df["close"])
     df["source"] = source
@@ -282,6 +322,16 @@ def import_csv(paths: Paths, input_path: Path, source: str, source_url: str) -> 
 def validate_data(paths: Paths) -> tuple[dict, pd.DataFrame]:
     prices = pd.read_parquet(paths.normalized / "prices.parquet")
     issues: list[dict] = []
+    required_price_columns = set(PRICE_COLUMNS)
+    missing_price_columns = sorted(required_price_columns - set(prices.columns))
+    if missing_price_columns:
+        issues.append({
+            "severity": "error", "check": "required_price_schema",
+            "count": len(missing_price_columns), "columns": missing_price_columns,
+        })
+    if "security_id" not in prices:
+        # Continue the diagnostic pass, but do not silently manufacture research identity.
+        prices["security_id"] = pd.NA
     duplicated = prices.duplicated(["date", "ticker"], keep=False)
     if duplicated.any():
         issues.append({"severity": "error", "check": "unique_date_ticker", "count": int(duplicated.sum())})
@@ -329,9 +379,37 @@ def validate_data(paths: Paths) -> tuple[dict, pd.DataFrame]:
         ).astype(str).isin(VERIFIED_ADJUSTMENT_POLICIES)
         outlier_rows["resolution"] = np.select(
             [outlier_rows["corporate_action_match"], outlier_rows["adjustment_contract_verified"]],
-            ["matched_verified_corporate_action", "covered_by_verified_adjustment_contract"],
+            ["verified_corporate_action", "verified_vendor_adjustment"],
             default="unresolved",
         )
+        ledger_path = paths.reports / "outlier_resolution_ledger.csv"
+        if ledger_path.exists():
+            ledger = pd.read_csv(ledger_path)
+            ledger["date"] = pd.to_datetime(ledger.get("date"), errors="coerce")
+            allowed = {
+                "verified_corporate_action", "verified_cross_source_correction",
+                "verified_vendor_adjustment", "unresolved", "genuine_market_move",
+            }
+            required_ledger = {"ticker", "date", "resolution", "reviewer_status", "source_url"}
+            if required_ledger <= set(ledger.columns):
+                ledger = ledger[
+                    ledger["resolution"].isin(allowed)
+                    & ledger["reviewer_status"].astype(str).isin({"verified", "rejected", "pending"})
+                ].drop_duplicates(["ticker", "date"], keep="last")
+                outlier_rows = outlier_rows.merge(
+                    ledger[["ticker", "date", "resolution", "reviewer_status", "source_url"]]
+                    .rename(columns={
+                        "resolution": "ledger_resolution", "source_url": "ledger_source_url",
+                    }), on=["ticker", "date"], how="left",
+                )
+                verified_ledger = (
+                    outlier_rows["reviewer_status"].eq("verified")
+                    & outlier_rows["ledger_resolution"].isin(allowed - {"unresolved"})
+                    & outlier_rows["ledger_source_url"].astype(str).str.startswith(("http://", "https://"))
+                )
+                outlier_rows.loc[verified_ledger, "resolution"] = outlier_rows.loc[
+                    verified_ledger, "ledger_resolution"
+                ]
         unresolved = int(outlier_rows["resolution"].eq("unresolved").sum())
         issues.append({
             "severity": "error" if unresolved else "warning",
@@ -341,7 +419,8 @@ def validate_data(paths: Paths) -> tuple[dict, pd.DataFrame]:
     outlier_columns = [
         "date", "ticker", "close", "adjusted_close", "return_1d",
         "adjustment_policy", "corporate_action_match",
-        "adjustment_contract_verified", "resolution", "source", "source_url",
+        "adjustment_contract_verified", "resolution", "reviewer_status",
+        "ledger_source_url", "source", "source_url",
     ]
     paths.reports.mkdir(parents=True, exist_ok=True)
     outlier_rows.reindex(columns=outlier_columns).to_csv(
@@ -372,6 +451,9 @@ def build_universe(
     rebalance: str = "monthly",
     definition: str = "hose_all_listed",
     index_code: str | None = None,
+    max_assets: int | None = None,
+    liquidity_lookback_days: int = 60,
+    minimum_observations: int = 40,
 ) -> pd.DataFrame:
     """Build auditable point-in-time snapshots for one declared universe definition.
 
@@ -384,6 +466,11 @@ def build_universe(
     prices = pd.read_parquet(paths.normalized / "prices.parquet")
     master = pd.read_parquet(paths.normalized / "security_master.parquet")
     prices["date"] = pd.to_datetime(prices["date"])
+    prices["available_at"] = pd.to_datetime(prices["available_at"], errors="coerce")
+    if "security_id" not in prices:
+        prices["security_id"] = prices["ticker"]
+    if "security_id" not in master:
+        master["security_id"] = master["ticker"]
     master["listing_date"] = pd.to_datetime(master["listing_date"])
     master["delisting_date"] = pd.to_datetime(master["delisting_date"])
     master["available_at"] = pd.to_datetime(master["available_at"])
@@ -409,7 +496,9 @@ def build_universe(
         records = master.copy()
         reason = "listed_on_hose_and_available_point_in_time"
     rows = []
+    audit_rows = []
     for date in anchors:
+        eligible_records = []
         for row in records.itertuples():
             start = row.effective_from
             end = row.effective_to
@@ -424,8 +513,9 @@ def build_universe(
                 and (pd.isna(end) or end >= date)
             )
             if eligible:
-                rows.append({
+                eligible_records.append({
                     "decision_time": date, "ticker": row.ticker, "eligible": True,
+                    "security_id": getattr(row, "security_id", row.ticker),
                     "reason": reason, "universe_definition": definition,
                     "index_code": getattr(row, "index_code", None),
                     "data_class": getattr(row, "data_class", "real"),
@@ -436,13 +526,65 @@ def build_universe(
                     "raw_checksum": getattr(row, "raw_checksum", None),
                     "history_method": getattr(row, "history_method", None),
                 })
+            else:
+                audit_rows.append({
+                    "decision_time": date, "ticker": row.ticker,
+                    "security_id": getattr(row, "security_id", row.ticker),
+                    "included": False, "reason": "outside_verified_listing_interval_or_not_yet_available",
+                    "trailing_observations": 0, "trailing_liquidity": np.nan,
+                })
+        eligible_frame = pd.DataFrame(eligible_records)
+        if eligible_frame.empty:
+            continue
+        start_lookback = date - pd.offsets.BDay(max(1, liquidity_lookback_days))
+        history = prices[
+            (prices["date"] <= date)
+            & (prices["date"] >= start_lookback)
+            & (prices["available_at"] <= date)
+            & prices["ticker"].isin(eligible_frame["ticker"])
+        ]
+        liquidity = history.groupby("ticker").agg(
+            trailing_observations=("date", "nunique"),
+            trailing_liquidity=("trading_value", "mean"),
+        )
+        eligible_frame = eligible_frame.merge(liquidity, on="ticker", how="left")
+        eligible_frame["trailing_observations"] = eligible_frame["trailing_observations"].fillna(0).astype(int)
+        enough_history = eligible_frame["trailing_observations"] >= minimum_observations
+        ranked = eligible_frame[enough_history].sort_values(
+            ["trailing_liquidity", "ticker"], ascending=[False, True], na_position="last"
+        )
+        if max_assets is not None:
+            ranked = ranked.head(int(max_assets))
+        selected = set(ranked["ticker"])
+        for item in eligible_frame.itertuples():
+            included = item.ticker in selected
+            if included:
+                exclusion_reason = "selected_by_trailing_liquidity_point_in_time"
+            elif item.trailing_observations < minimum_observations:
+                exclusion_reason = "insufficient_trailing_observations"
+            else:
+                exclusion_reason = "outside_dynamic_top_n_liquidity"
+            audit_rows.append({
+                "decision_time": date, "ticker": item.ticker,
+                "security_id": item.security_id, "included": included,
+                "reason": exclusion_reason,
+                "trailing_observations": item.trailing_observations,
+                "trailing_liquidity": item.trailing_liquidity,
+            })
+        rows.extend(ranked.to_dict("records"))
     universe = pd.DataFrame(rows)
     if universe.empty:
         raise ValueError("The declared point-in-time universe produced no eligible snapshots.")
     paths.curated.mkdir(parents=True, exist_ok=True)
     universe.to_parquet(paths.curated / "universe_monthly.parquet", index=False)
+    eligibility_audit = pd.DataFrame(audit_rows)
+    eligibility_audit.to_parquet(paths.curated / "universe_eligibility_audit.parquet", index=False)
+    eligibility_audit.to_csv(paths.curated / "universe_eligibility_audit.csv", index=False)
     (paths.curated / "universe_contract.json").write_text(json.dumps({
         "definition": definition, "index_code": index_code, "rebalance": rebalance,
+        "max_assets": max_assets, "liquidity_lookback_days": liquidity_lookback_days,
+        "minimum_observations": minimum_observations,
+        "selection_information_cutoff": "price.available_at <= decision_time",
         "snapshot_rows": len(universe), "tickers": int(universe["ticker"].nunique()),
         "start": str(pd.to_datetime(universe["decision_time"]).min().date()),
         "end": str(pd.to_datetime(universe["decision_time"]).max().date()),
@@ -484,7 +626,7 @@ def leakage_audit(paths: Paths) -> dict:
         if is_fixture:
             fixture_auxiliary.append(name)
     master_has_contract = bool(
-        {"listing_date", "delisting_date", "effective_from", "effective_to", "available_at",
+        {"security_id", "listing_date", "delisting_date", "effective_from", "effective_to", "available_at",
          "history_method"} | PROVENANCE_COLUMNS <= set(master.columns)
     )
     history_methods = set(master.get("history_method", pd.Series(dtype=str)).dropna().astype(str))
@@ -529,7 +671,7 @@ def leakage_audit(paths: Paths) -> dict:
     )
     actions_contract = bool(
         not actions.empty
-        and {"ticker", "announcement_date", "effective_date", "available_at"}
+        and {"ticker", "security_id", "announcement_date", "effective_date", "available_at"}
         | PROVENANCE_COLUMNS <= set(actions.columns)
     )
     price_times_valid = bool(
@@ -563,6 +705,20 @@ def leakage_audit(paths: Paths) -> dict:
     actions_required = "unadjusted_with_verified_actions_join" in adjustment_policies
     declared_universe_valid = universe_definition in UNIVERSE_DEFINITIONS
     membership_required = universe_definition == "index_membership"
+    price_start = pd.to_datetime(prices["date"], errors="coerce").min()
+    price_end = pd.to_datetime(prices["date"], errors="coerce").max()
+    master_listing = pd.to_datetime(master.get("listing_date"), errors="coerce")
+    master_delisting = pd.to_datetime(master.get("delisting_date"), errors="coerce")
+    relevant_master = master[
+        master_listing.le(price_end)
+        & (master_delisting.isna() | master_delisting.ge(price_start))
+    ]
+    observed_tickers = set(prices["ticker"].dropna().astype(str))
+    required_tickers = set(relevant_master["ticker"].dropna().astype(str))
+    missing_universe_prices = sorted(required_tickers - observed_tickers)
+    master_security_ids = set(master.get("security_id", pd.Series(dtype=str)).dropna().astype(str))
+    price_security_ids = set(prices.get("security_id", pd.Series(dtype=str)).dropna().astype(str))
+    unmatched_price_security_ids = sorted(price_security_ids - master_security_ids)
     checks = {
         "universe_definition_declared": declared_universe_valid,
         "historical_universe_contract": master_has_contract,
@@ -571,6 +727,8 @@ def leakage_audit(paths: Paths) -> dict:
             "data_class", pd.Series(dtype=str)
         ).astype(str).eq("fixture").any(),
         "historical_universe_times_valid": master_times_valid,
+        "historical_universe_price_coverage_complete": not missing_universe_prices,
+        "price_security_identity_matches_master": not unmatched_price_security_ids,
         "universe_snapshots_built_with_provenance": universe_contract,
         "universe_snapshot_times_valid": universe_times_valid,
         "universe_snapshot_source_trusted": bool(universe_methods)
@@ -608,6 +766,13 @@ def leakage_audit(paths: Paths) -> dict:
         "adjustment_policies": sorted(adjustment_policies),
         "price_adjustment_contract": adjustment_contract,
         "corporate_actions_required": actions_required,
+        "historical_universe_price_coverage": {
+            "required_tickers": len(required_tickers),
+            "observed_tickers": len(required_tickers & observed_tickers),
+            "missing_count": len(missing_universe_prices),
+            "missing_tickers": missing_universe_prices,
+        },
+        "unmatched_price_security_ids": unmatched_price_security_ids,
         "note": (
             "Historical universe/membership, corporate actions and adjustment policy are core "
             "research contracts. Optional PIT features are excluded when unavailable. Fixture "

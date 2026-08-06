@@ -9,7 +9,7 @@ Hệ thống point-in-time cho chuỗi:
 
 Workspace có panel giá thị trường 300 mã giai đoạn 2020–2025, nhưng chưa có lịch sử
 niêm yết/hủy niêm yết HOSE, hợp đồng điều chỉnh giá và benchmark total-return đủ provenance.
-Data-quality hiện còn 47 outlier lợi nhuận điều chỉnh chưa được xác minh.
+Data-quality hiện còn 46 outlier lợi nhuận điều chỉnh chưa được xác minh.
 Vì vậy research mode hiện **fail-closed**: hệ thống tạo artifact `blocked` rồi dừng trước
 huấn luyện/backtest. Adapter `fixture` chỉ kiểm thử phần mềm và mọi artifact đều ghi
 **NOT RESEARCH RESULT**. Hệ thống không suy ngày niêm yết từ phiên giá đầu tiên, không
@@ -41,6 +41,9 @@ solver/ablation/sensitivity/statistics và in báo cáo chi tiết ngay trong te
 python -m src.cli run-full --config configs/full_demo.yaml
 ```
 
+Lệnh demo chạy trong một workspace tạm biệt lập và chỉ sao chép artifact thí nghiệm về
+`outputs/experiments`; nó không ghi đè `outputs/normalized`, `outputs/curated` hay các bảng thật.
+
 Chạy một lệnh trên panel thật đã import (lệnh sẽ fail-closed và xuất blocker artifact nếu
 hợp đồng point-in-time chưa đủ):
 
@@ -63,6 +66,26 @@ $env:SSI_CONSUMER_SECRET="..."
 python -m src.cli crawl --stage 1 --source ssi --from 2015-01-01 --to 2025-12-31 `
   --tickers VNM,FPT,HPG,SSI
 ```
+
+Lấy security master và lịch sử hủy niêm yết trực tiếp từ dịch vụ công khai chính thức của HOSE:
+
+```powershell
+python -m src.cli crawl-hose-security-master --from-year 2015 --to-year 2025
+```
+
+Lệnh này gắn ISIN ổn định vào panel giá, cách ly các dòng nằm ngoài khoảng niêm yết HOSE và
+lưu bản cũ có thể phục hồi. Nó không thay thế nguồn OHLC, corporate actions hay benchmark.
+
+Đối chiếu OHLC bằng API chính thức của Trading Economics:
+
+```powershell
+$env:TRADING_ECONOMICS_API_KEY="..."
+python -m src.cli crawl --stage 1 --source tradingeconomics `
+  --from 2020-01-01 --to 2025-12-31 --tickers VCB,FPT,HPG,VNM
+```
+
+Kết quả Trading Economics chỉ nằm trong staging và `outputs/reports/trading_economics_crosscheck.csv`;
+nó không được promote thành panel giá chính vì endpoint không có volume và không chứng nhận điều chỉnh giá.
 
 Import các bảng point-in-time Stage 1–3:
 

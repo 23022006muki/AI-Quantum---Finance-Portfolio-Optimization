@@ -24,6 +24,28 @@ def test_fixture_quality_and_universe(tmp_path: Path):
     assert (universe["decision_time"] >= pd.Timestamp("2022-01-01")).all()
 
 
+def test_dynamic_universe_uses_only_trailing_liquidity(tmp_path: Path):
+    paths = Paths(tmp_path)
+    generate_fixture(paths, "2022-01-01", "2022-12-31", ["AAA", "BBB"], 7)
+    prices = pd.read_parquet(paths.normalized / "prices.parquet")
+    prices["trading_value"] = 1.0
+    prices.loc[prices.ticker.eq("AAA"), "trading_value"] = 1_000_000.0
+    prices.loc[
+        prices.ticker.eq("BBB") & (pd.to_datetime(prices.date) >= pd.Timestamp("2022-08-01")),
+        "trading_value",
+    ] = 1_000_000_000.0
+    prices.to_parquet(paths.normalized / "prices.parquet", index=False)
+    universe = build_universe(
+        paths, max_assets=1, liquidity_lookback_days=20, minimum_observations=5
+    )
+    july = universe[universe.decision_time.dt.month.eq(7)]
+    september = universe[universe.decision_time.dt.month.eq(9)]
+    assert set(july.ticker) == {"AAA"}
+    assert set(september.ticker) == {"BBB"}
+    audit = pd.read_parquet(paths.curated / "universe_eligibility_audit.parquet")
+    assert {"trailing_observations", "trailing_liquidity", "reason"} <= set(audit.columns)
+
+
 def test_leakage_audit_fixture_contracts_are_complete_but_waived(tmp_path: Path):
     paths = Paths(tmp_path)
     generate_fixture(paths, "2022-01-01", "2022-12-31", ["AAA", "BBB"], 7)

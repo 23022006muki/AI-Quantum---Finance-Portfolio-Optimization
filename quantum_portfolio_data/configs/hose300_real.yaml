@@ -9,6 +9,9 @@ data:
 universe:
   definition: hose_all_listed
   index_code: null
+  max_assets: 300
+  liquidity_lookback_days: 60
+  minimum_observations: 40
 walk_forward:
   train_months: 24
   validation_months: 3

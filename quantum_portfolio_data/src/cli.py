@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -14,8 +17,10 @@ from .data_pipeline import (
 from .research import ResearchRunBlocked, build_features, load_config, run_experiment
 from .sources import (
     crawl_ssi_stage1,
+    crawl_hose_official_security_master,
     crawl_vietstock_stage1,
     crawl_fdr_hose,
+    crawl_trading_economics_crosscheck,
     crawl_vnstock_hose,
     import_point_in_time_table,
     merge_hose_checkpoints,
@@ -40,7 +45,7 @@ def parser() -> argparse.ArgumentParser:
     crawl.add_argument("--stage", type=int, default=1, choices=[1, 2, 3])
     crawl.add_argument(
         "--source",
-        choices=["fixture", "csv", "ssi", "vietstock", "vnstock", "fdr"],
+        choices=["fixture", "csv", "ssi", "vietstock", "vnstock", "fdr", "tradingeconomics"],
         required=True,
     )
     crawl.add_argument("--from", dest="start", default="2020-01-01")
@@ -85,6 +90,9 @@ def parser() -> argparse.ArgumentParser:
         default="hose_all_listed",
     )
     uni.add_argument("--index-code")
+    uni.add_argument("--max-assets", type=int)
+    uni.add_argument("--liquidity-lookback-days", type=int, default=60)
+    uni.add_argument("--minimum-observations", type=int, default=40)
     sub.add_parser("report-coverage", help="Generate coverage report")
     sub.add_parser("leakage-audit", help="Audit point-in-time contracts")
     feat = sub.add_parser("build-features", help="Build leakage-aware features")
@@ -100,6 +108,18 @@ def parser() -> argparse.ArgumentParser:
         help="Validate/build/run the complete fixture or pre-imported research pipeline",
     )
     full.add_argument("--config", type=Path, default=ROOT / "configs" / "full_demo.yaml")
+    prepare = sub.add_parser(
+        "prepare-research-data",
+        help="Inspect data contracts and build the PIT universe without fabricating missing tables",
+    )
+    prepare.add_argument("--config", type=Path, default=ROOT / "configs" / "hose300_real.yaml")
+    hose_master = sub.add_parser(
+        "crawl-hose-security-master",
+        help="Collect official HOSE current listings and historical delisting events",
+    )
+    hose_master.add_argument("--from-year", type=int, default=2015)
+    hose_master.add_argument("--to-year", type=int, default=2025)
+    hose_master.add_argument("--pause-seconds", type=float, default=0.05)
     return p
 
 
@@ -125,6 +145,8 @@ def print_experiment_summary(out: Path) -> None:
     rankings = pd.read_csv(out / "rankings.csv")
     trades = pd.read_csv(out / "trades.csv")
     weights = pd.read_csv(out / "weights.csv")
+    latest_path = out / "latest_selected_portfolio.csv"
+    latest = pd.read_csv(latest_path) if latest_path.exists() else pd.DataFrame()
     print("\n" + "=" * 100)
     print("BÁO CÁO CHẠY TOÀN BỘ HỆ THỐNG AI–QUANTUM PORTFOLIO")
     print("=" * 100)
@@ -175,6 +197,15 @@ def print_experiment_summary(out: Path) -> None:
     print(metric_view.to_string(index=False))
     print(f"\nSố trade rows        : {len(trades):,}")
     print(f"Số weight rows       : {len(weights):,}")
+    print("\nRổ cổ phiếu của fold cuối cùng:")
+    if latest.empty:
+        print("  Không có fold nghiên cứu hoàn tất.")
+    else:
+        columns = [column for column in [
+            "ticker", "company_name", "sector", "target_weight", "signal",
+            "trade_weight", "estimated_cost", "adv_participation",
+        ] if column in latest.columns]
+        print(latest[columns].to_string(index=False))
     print("\n[5] ABLATION STUDY")
     print("-" * 100)
     ablation_view = ablations.groupby(["configuration", "selector", "solver"]).agg(
@@ -255,11 +286,20 @@ def main(argv=None) -> int:
                 paths, args.start, args.end,
                 max_tickers=args.max_tickers, tickers=requested,
             )
-        else:
+        elif args.source == "fdr":
             requested = None if args.tickers.strip().lower() == "auto" else args.tickers.split(",")
             result = crawl_fdr_hose(
                 paths, args.start, args.end,
                 max_tickers=args.max_tickers, tickers=requested,
+            )
+        else:
+            if args.tickers.strip().lower() == "auto":
+                raise SystemExit(
+                    "Trading Economics cross-check requires explicit tickers; its current-list API "
+                    "must not define the historical HOSE universe."
+                )
+            result = crawl_trading_economics_crosscheck(
+                paths, args.tickers.split(","), args.start, args.end
             )
         if args.source != "fixture":
             result["quarantined_fixture_auxiliary"] = quarantine_fixture_auxiliary(paths)
@@ -267,13 +307,13 @@ def main(argv=None) -> int:
     elif args.command == "import-pit-table":
         contracts = {
             "index_membership": {"ticker", "index_code", "effective_from", "effective_to", "available_at", "source", "source_url", "history_method"},
-            "corporate_actions": {"ticker", "event_type", "announcement_date", "effective_date", "available_at", "source", "source_url"},
+            "corporate_actions": {"ticker", "security_id", "event_type", "announcement_date", "effective_date", "available_at", "source", "source_url"},
             "financial_statements": {"ticker", "fiscal_period_end", "publication_date", "available_at", "source", "source_url"},
             "macro": {"series_id", "observation_date", "release_date", "available_at", "value", "source", "source_url"},
             "foreign_flow": {"date", "ticker", "available_at", "foreign_net_value", "source", "source_url"},
-            "benchmark": {"date", "benchmark", "total_return_index", "available_at", "source", "source_url"},
+            "benchmark": {"date", "benchmark", "total_return_index", "index_type", "methodology_url", "available_at", "source", "source_url"},
             "security_master": {
-                "ticker", "exchange", "listing_date", "delisting_date", "effective_from",
+                "security_id", "ticker", "exchange", "listing_date", "delisting_date", "effective_from",
                 "effective_to", "available_at", "history_method", "source", "source_url",
             },
         }
@@ -300,7 +340,10 @@ def main(argv=None) -> int:
         if args.command == "report-coverage":
             print(coverage.to_string(index=False))
     elif args.command == "build-universe":
-        universe = build_universe(paths, args.rebalance, args.definition, args.index_code)
+        universe = build_universe(
+            paths, args.rebalance, args.definition, args.index_code,
+            args.max_assets, args.liquidity_lookback_days, args.minimum_observations,
+        )
         print(f"universe_rows={len(universe)}")
     elif args.command == "leakage-audit":
         print(json.dumps(leakage_audit(paths), indent=2))
@@ -312,18 +355,80 @@ def main(argv=None) -> int:
         paths.curated.mkdir(parents=True, exist_ok=True)
         features.to_parquet(paths.curated / "features.parquet", index=False)
         print(f"feature_rows={len(features)}")
+    elif args.command == "prepare-research-data":
+        cfg = load_config(args.config.resolve())
+        universe_cfg = cfg.get("universe", {})
+        credential_status = {
+            name: bool(os.getenv(name)) for name in [
+                "SSI_CONSUMER_ID", "SSI_CONSUMER_SECRET", "VIETSTOCK_COOKIE_FILE",
+                "VIETSTOCK_AUTH_HEADER_FILE", "TRADING_ECONOMICS_API_KEY", "FRED_API_KEY",
+            ]
+        }
+        quality, _ = validate_data(paths)
+        build_error = None
+        try:
+            universe = build_universe(
+                paths, cfg["data"].get("rebalance", "monthly"),
+                universe_cfg.get("definition", "hose_all_listed"),
+                universe_cfg.get("index_code"), universe_cfg.get("max_assets"),
+                universe_cfg.get("liquidity_lookback_days", 60),
+                universe_cfg.get("minimum_observations", 40),
+            )
+            universe_rows = len(universe)
+        except (ValueError, KeyError) as exc:
+            build_error = str(exc)
+            universe_rows = 0
+        result = {
+            "config": str(args.config.resolve()), "credentials_configured": credential_status,
+            "data_quality": quality, "universe_rows": universe_rows,
+            "universe_build_error": build_error, "leakage_audit": leakage_audit(paths),
+            "note": "Credential booleans only; no secret values are printed or persisted.",
+        }
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "crawl-hose-security-master":
+        result = crawl_hose_official_security_master(
+            paths, args.from_year, args.to_year, args.pause_seconds
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
     elif args.command == "run-experiment":
         out = run_experiment(ROOT, args.config.resolve())
         print_experiment_summary(out)
     elif args.command == "run-full":
         cfg = load_config(args.config.resolve())
         if cfg["data"]["source"] == "fixture":
-            manifest = generate_fixture(
-                paths, cfg["data"]["start"], cfg["data"]["end"],
-                cfg["data"]["tickers"], cfg["seed"],
-            )
-            print(json.dumps(manifest, indent=2, ensure_ascii=False))
-        elif not (paths.normalized / "prices.parquet").exists():
+            # A demo must never replace, certify, or otherwise mutate the real-data
+            # workspace. Build and execute it in an isolated temporary project, then
+            # copy only the immutable experiment artifact back to outputs/experiments.
+            with tempfile.TemporaryDirectory(prefix="ai-quantum-fixture-") as temporary:
+                demo_root = Path(temporary)
+                demo_paths = Paths(demo_root)
+                manifest = generate_fixture(
+                    demo_paths, cfg["data"]["start"], cfg["data"]["end"],
+                    cfg["data"]["tickers"], cfg["seed"],
+                )
+                print(json.dumps(manifest, indent=2, ensure_ascii=False))
+                quality, _ = validate_data(demo_paths)
+                print(json.dumps(quality, indent=2, ensure_ascii=False))
+                universe_cfg = cfg.get("universe", {})
+                universe = build_universe(
+                    demo_paths, cfg["data"].get("rebalance", "monthly"),
+                    universe_cfg.get("definition", "hose_all_listed"),
+                    universe_cfg.get("index_code"), universe_cfg.get("max_assets"),
+                    universe_cfg.get("liquidity_lookback_days", 60),
+                    universe_cfg.get("minimum_observations", 40),
+                )
+                print(f"universe_rows={len(universe):,}")
+                print(json.dumps(leakage_audit(demo_paths), indent=2, ensure_ascii=False))
+                temporary_out = run_experiment(demo_root, args.config.resolve())
+                experiments = ROOT / "outputs" / "experiments"
+                experiments.mkdir(parents=True, exist_ok=True)
+                out = experiments / temporary_out.name
+                if out.exists():
+                    raise RuntimeError(f"Experiment artifact already exists: {out}")
+                shutil.copytree(temporary_out, out)
+            print_experiment_summary(out)
+            return 0
+        if not (paths.normalized / "prices.parquet").exists():
             raise SystemExit(
                 "Research run-full requires an existing normalized price panel. "
                 "Run the authorized crawl/import command first."
@@ -335,6 +440,9 @@ def main(argv=None) -> int:
             paths, cfg["data"].get("rebalance", "monthly"),
             universe_cfg.get("definition", "hose_all_listed"),
             universe_cfg.get("index_code"),
+            universe_cfg.get("max_assets"),
+            universe_cfg.get("liquidity_lookback_days", 60),
+            universe_cfg.get("minimum_observations", 40),
         )
         print(f"universe_rows={len(universe):,}")
         print(json.dumps(leakage_audit(paths), indent=2, ensure_ascii=False))

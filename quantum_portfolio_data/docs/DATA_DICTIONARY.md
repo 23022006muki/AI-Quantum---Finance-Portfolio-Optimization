@@ -2,7 +2,7 @@
 
 ## Prices
 
-Primary key: `(date, ticker)`.
+Primary key vật lý: `(date, ticker)`; `security_id` là định danh ổn định dùng để nối lịch sử khi ticker thay đổi.
 
 Required fields: `open`, `high`, `low`, `close`, `adjusted_close`, `volume`,
 `trading_value`, `source`, `source_url`, `fetched_at`, `available_at`, `raw_checksum`,
@@ -18,6 +18,7 @@ data are always marked `fixture`.
 
 Fields include `listing_date`, `delisting_date`, `effective_from`, `effective_to`,
 `available_at`, `history_method`, `source_url`, `fetched_at` and `raw_checksum`.
+`security_id` là bắt buộc trong research mode.
 `first_price_observation_proxy` is recorded honestly but rejected in research mode.
 
 ## Corporate actions

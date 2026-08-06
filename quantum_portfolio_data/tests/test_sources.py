@@ -4,8 +4,9 @@ import pandas as pd
 import pytest
 
 from src.sources import (
-    SSIFastConnectAdapter, SourceConfigurationError, VietstockAdapter,
+    SSIFastConnectAdapter, SourceConfigurationError, TradingEconomicsAdapter, VietstockAdapter,
     _normalize_fdr_ohlc, _normalize_vnstock_ohlc, import_point_in_time_table,
+    normalize_hose_security_master, normalize_trading_economics_ohlc,
     normalize_vietstock_ohlc,
 )
 
@@ -78,3 +79,45 @@ def test_fdr_normalization_shifts_utc_session_date():
     out = _normalize_fdr_ohlc(raw, "vcb", "https://example.test")
     assert out.loc[0, "date"] == pd.Timestamp("2020-01-02")
     assert out.loc[0, "adjusted_close"] == 10_250
+
+
+def test_trading_economics_fails_closed_without_api_key(monkeypatch):
+    monkeypatch.delenv("TRADING_ECONOMICS_API_KEY", raising=False)
+    with pytest.raises(SourceConfigurationError):
+        TradingEconomicsAdapter()
+
+
+def test_trading_economics_is_normalized_as_crosscheck_only():
+    raw = pd.DataFrame([{
+        "Symbol": "VCB:VN", "Date": "02/01/2024", "Open": 85000,
+        "High": 87000, "Low": 84000, "Close": 86500,
+    }])
+    out = normalize_trading_economics_ohlc(raw, "VCB", "VCB:VN")
+    assert out.loc[0, "security_id"] == "HOSE:VCB"
+    assert out.loc[0, "data_class"] == "real_crosscheck"
+    assert "volume" not in out.columns
+
+
+def test_hose_official_master_uses_exchange_dates_and_isin_identity():
+    current = pd.DataFrame([{
+        "id": 10, "code": "AAA", "isin": "VN000000AAA4", "name": "AAA Co",
+        "securitiesType": 1, "ftdate": 1_577_923_200, "regDate": 1_577_836_800,
+        "listDate": -62_135_596_800, "acceptDate": 1_577_836_800,
+        "bloomberg": "FIGI-AAA",
+    }])
+    detail = {
+        "id": 20, "code": "BBB", "isin": "VN000000BBB1", "name": "BBB Co",
+        "securityTypeId": 1, "ftdate": 1_420_070_400, "regDate": 1_419_984_000,
+        "listDate": None, "acceptDate": 1_419_984_000, "bloomberg": "FIGI-BBB",
+    }
+    events = pd.DataFrame([{
+        "securityId": 20, "code": "BBB", "isin": "VN000000BBB1",
+        "cancelDate": 1_609_459_200,
+    }])
+    out = normalize_hose_security_master(
+        current, [detail], events, "2026-01-01T00:00:00+00:00"
+    ).set_index("ticker")
+    assert out.loc["AAA", "security_id"] == "VN000000AAA4"
+    assert out.loc["AAA", "history_method"] == "exchange_listing_history"
+    assert out.loc["AAA", "listing_date"] == pd.Timestamp("2020-01-02")
+    assert out.loc["BBB", "delisting_date"] == pd.Timestamp("2021-01-01")

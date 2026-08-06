@@ -18,5 +18,5 @@ Penalty-QAOA sử dụng cùng họ optimizer, depth, shots và budget khi so s�
 
 Nghiệm chính của XY-QAOA là bitstring có xác suất cao nhất trong phân bố cuối. Đối với penalty-QAOA, nghiệm chính là bitstring khả thi có xác suất cao nhất. Nghiệm khả thi có năng lượng thấp nhất từng xuất hiện trong shots được lưu riêng dưới tên `best_observed`; nó không thay thế nghiệm chính khi tính primary optimality gap.
 
-Artifact solver còn lưu expected energy, primary probability, feasibility rate, probability of optimum, bitstring counts và optimizer trace. Nếu dùng phép trộn xác suất đều, trường được gọi rõ là `uniform_probability_noise_proxy`; đây không phải gate-noise model hay bằng chứng từ phần cứng NISQ.
+Artifact solver còn lưu expected energy, primary probability, feasibility rate, probability of optimum, bitstring counts và optimizer trace. Ngoài ideal statevector, sensitivity có thể áp dụng kênh depolarizing và readout ở mức mô phỏng hiện tượng học. `uniform_probability_noise_proxy` là phép trộn phân bố cũ được gắn nhãn riêng. Không cấu hình nào trong số này là gate-level hardware noise đã hiệu chuẩn hoặc bằng chứng từ thiết bị NISQ thực.
 

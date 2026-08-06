@@ -1,11 +1,11 @@
 # Ma trận đối chiếu báo cáo – hệ thống
 
 Ngày kiểm toán: 2026-08-06  
-Nhánh: `fix/research-validity`
+Nhánh: `codex/rebuild-pit-research-data`
 
 | Nội dung nghiên cứu | Trạng thái triển khai | Bằng chứng |
 |---|---|---|
-| Universe point-in-time | Hoàn chỉnh trong mã; dữ liệu thật còn bị chặn | `universe_contract.json`, `universe_monthly.parquet`, `leakage_audit.json` |
+| Universe point-in-time | Security master HOSE chính thức đã hoàn thành; panel giá chưa bao phủ toàn bộ universe | `security_master.parquet`, `universe_contract.json`, `universe_eligibility_audit.parquet` |
 | Phân biệt toàn HOSE và thành phần chỉ số | Hoàn chỉnh | `universe.definition: hose_all_listed/index_membership` |
 | Purging, embargo và walk-forward phủ toàn kỳ | Hoàn chỉnh | `fold_manifest.csv`; `max_folds: null` cho cấu hình HOSE |
 | XGBoost tạo lợi nhuận kỳ vọng cho QUBO | Hoàn chỉnh | `signal_calibration.csv`, `optimization_instances.json` |
@@ -21,19 +21,18 @@ Nhánh: `fix/research-validity`
 | H1–H6, bootstrap và Holm | Hoàn chỉnh trong mã | `statistical_tests.csv`, `sensitivity_results.csv` |
 | Artifact integrity | Hoàn chỉnh | SHA-256 cho từng artifact; audit phát hiện chỉnh sửa |
 | Dependency reproducibility | Hoàn chỉnh | `requirements.lock` chứa dependency bắc cầu và hash |
-| Research-mode integration test dương tính | Hoàn chỉnh | 42 tests, gồm run thành công với hợp đồng dữ liệu tổng hợp hợp lệ |
+| Research-mode integration test dương tính | Hoàn chỉnh | Test suite gồm run thành công với hợp đồng dữ liệu tổng hợp hợp lệ và kiểm tra demo không ghi đè dữ liệu thật |
 
 ## Các blocker dữ liệu thật còn lại
 
 Đây không còn là thiếu sót logic có thể sửa bằng cách tự suy diễn dữ liệu. Research run thật
-hiện bị chặn trước huấn luyện/backtest bởi năm điều kiện:
+hiện bị chặn trước huấn luyện/backtest bởi bốn nhóm điều kiện:
 
-1. 47 outlier lợi nhuận điều chỉnh chưa được nối với corporate action hoặc hợp đồng điều chỉnh đã xác minh.
-2. Security master vẫn dùng `first_price_observation_proxy`, không phải lịch sử niêm yết/hủy niêm yết chính thức.
-3. Snapshot universe kế thừa nguồn proxy nên chưa đạt cổng tin cậy.
-4. Chính sách điều chỉnh giá chưa có provenance được xác minh.
-5. Chưa có chuỗi VN-Index total-return đáp ứng hợp đồng point-in-time.
+1. 46 outlier lợi nhuận điều chỉnh chưa được nối với corporate action hoặc hợp đồng điều chỉnh đã xác minh.
+2. Panel OHLC 300 mã chưa bao phủ 145 trong 445 mã thuộc security master giao cắt giai đoạn 2020–2025; vì vậy chưa thể xếp hạng top 300 thanh khoản mà không có survivorship/coverage bias.
+3. Chính sách điều chỉnh giá chưa có provenance được xác minh.
+4. Chưa có chuỗi VN-Index total-return đáp ứng hợp đồng point-in-time.
 
-Artifact mới nhất `20260806T181627-c5ef044e1b-blocked` được audit là `blocked_valid`; không
-có metrics nghiên cứu hoặc tuyên bố quantum advantage. Các bảng fixture phụ trợ cũ đã được
-chuyển có thể phục hồi sang `outputs/quarantine/fixture_auxiliary/20260806T180922`.
+Security master hiện có 500 bản ghi chính thức; 463 dòng giá SHB trước ngày chuyển sang HOSE đã
+được cách ly có thể phục hồi. Artifact `20260806T210525-72a01af202-blocked` đã được audit
+`blocked_valid`, không chứa metrics nghiên cứu hoặc tuyên bố quantum advantage.

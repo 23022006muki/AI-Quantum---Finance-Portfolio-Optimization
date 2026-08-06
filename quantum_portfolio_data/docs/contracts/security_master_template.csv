@@ -1,2 +1,2 @@
-ticker,company_name,exchange,industry,sector,listing_date,delisting_date,effective_from,effective_to,available_at,history_method,source,source_url
-AAA,Example Company,HOSE,Example Industry,Example Sector,2020-01-02,,2020-01-02,,2019-12-20,exchange_listing_history,official_exchange,https://documented-source.example/listing-history
+security_id,ticker,company_name,exchange,industry,sector,listing_date,delisting_date,effective_from,effective_to,available_at,history_method,source,source_url
+VN000000AAA0,AAA,Example Company,HOSE,Example Industry,Example Sector,2020-01-02,,2020-01-02,,2019-12-20,exchange_listing_history,official_exchange,https://documented-source.example/listing-history
