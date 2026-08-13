@@ -11,11 +11,14 @@ from pathlib import Path
 import pandas as pd
 
 from .data_pipeline import (
-    Paths, apply_price_adjustment_contract, build_universe, generate_fixture, import_csv, leakage_audit,
-    quarantine_fixture_auxiliary, validate_data,
+    Paths, apply_price_adjustment_contract, build_complete_case_workspace, build_universe,
+    generate_fixture, import_csv, leakage_audit, quarantine_fixture_auxiliary, validate_data,
+    sha256_file,
 )
 from .research import ResearchRunBlocked, build_features, load_config, run_experiment
 from .sources import (
+    audit_available_data_sources,
+    crawl_historical_hose_price_gaps,
     crawl_ssi_stage1,
     crawl_hose_official_security_master,
     crawl_vietstock_stage1,
@@ -23,7 +26,10 @@ from .sources import (
     crawl_trading_economics_crosscheck,
     crawl_vnstock_hose,
     import_point_in_time_table,
+    merge_historical_hose_checkpoints,
     merge_hose_checkpoints,
+    crawl_world_bank_vietnam_snapshot,
+    crawl_cafef_standalone_workspace,
 )
 
 
@@ -108,6 +114,46 @@ def parser() -> argparse.ArgumentParser:
         help="Validate/build/run the complete fixture or pre-imported research pipeline",
     )
     full.add_argument("--config", type=Path, default=ROOT / "configs" / "full_demo.yaml")
+    complete_case = sub.add_parser(
+        "run-complete-case",
+        help=(
+            "Build an isolated complete-case real-data workspace and run the "
+            "explicitly exploratory pipeline"
+        ),
+    )
+    complete_case.add_argument(
+        "--config", type=Path,
+        default=ROOT / "configs" / "hose300_complete_case_exploratory.yaml",
+    )
+    complete_case.add_argument("--from", dest="start", default="2020-01-01")
+    complete_case.add_argument("--to", dest="end", default="2025-12-31")
+    complete_case.add_argument("--minimum-total-observations", type=int, default=40)
+    complete_case.add_argument("--maximum-calendar-gap-days", type=int, default=5)
+    cafef = sub.add_parser(
+        "run-cafef",
+        help="Crawl a separate CafeF-only panel, quality-gate it, and run only if accepted",
+    )
+    cafef.add_argument(
+        "--config", type=Path,
+        default=ROOT / "configs" / "cafef_standalone_exploratory.yaml",
+    )
+    cafef.add_argument("--from", dest="start", default="2020-01-01")
+    cafef.add_argument("--to", dest="end", default="2025-12-31")
+    cafef.add_argument(
+        "--tickers",
+        default="VCB,BID,CTG,MBB,HPG,FPT,VNM,VIC,GAS,MSN,MWG,SSI",
+    )
+    cafef.add_argument("--max-workers", type=int, default=3)
+    cafef.add_argument(
+        "--workspace-name",
+        help="Stable output folder name under outputs, for example 'data CafeF'",
+    )
+    cafef.add_argument("--minimum-total-observations", type=int, default=40)
+    cafef.add_argument("--maximum-calendar-gap-days", type=int, default=5)
+    cafef.add_argument(
+        "--existing-workspace", type=Path,
+        help="Resume quality-gating an already collected CafeF workspace without recrawling",
+    )
     prepare = sub.add_parser(
         "prepare-research-data",
         help="Inspect data contracts and build the PIT universe without fabricating missing tables",
@@ -120,6 +166,27 @@ def parser() -> argparse.ArgumentParser:
     hose_master.add_argument("--from-year", type=int, default=2015)
     hose_master.add_argument("--to-year", type=int, default=2025)
     hose_master.add_argument("--pause-seconds", type=float, default=0.05)
+    historical_prices = sub.add_parser(
+        "crawl-historical-price-gaps",
+        help="Checkpoint missing historical HOSE symbols using public adapters without promotion",
+    )
+    historical_prices.add_argument("--from", dest="start", default="2020-01-01")
+    historical_prices.add_argument("--to", dest="end", default="2025-12-31")
+    historical_prices.add_argument("--no-vnstock-fallback", action="store_true")
+    historical_prices.add_argument("--pause-seconds", type=float, default=0.35)
+    historical_merge = sub.add_parser(
+        "merge-historical-price-checkpoints",
+        help="Promote all available historical HOSE checkpoints using official security identities",
+    )
+    historical_merge.add_argument("--from", dest="start", default="2020-01-01")
+    historical_merge.add_argument("--to", dest="end", default="2025-12-31")
+    world_bank = sub.add_parser(
+        "crawl-world-bank",
+        help="Collect a keyless official World Bank Vietnam macro snapshot (non-PIT)",
+    )
+    world_bank.add_argument("--from-year", type=int, default=2015)
+    world_bank.add_argument("--to-year", type=int, default=2025)
+    sub.add_parser("audit-data-sources", help="Write the current source and research-data gap inventory")
     return p
 
 
@@ -245,7 +312,11 @@ def print_experiment_summary(out: Path) -> None:
         print(f"  - {out / name}")
     print("\nKẾT LUẬN THỰC THI")
     print("-" * 100)
-    if "fixture" in str(manifest.get("data_class", "")).lower():
+    if manifest.get("mode") == "exploratory":
+        print("Toàn bộ pipeline đã chạy thành công trên panel giá thật dạng complete-case.")
+        print("Kết quả chỉ mang tính khám phá, không phải kiểm định confirmatory toàn HOSE,")
+        print("khuyến nghị đầu tư hoặc bằng chứng quantum advantage.")
+    elif "fixture" in str(manifest.get("data_class", "")).lower():
         print("Toàn bộ code path đã chạy thành công. Kết quả fixture chỉ dùng kiểm thử phần mềm;")
         print("không được diễn giải là kết quả nghiên cứu HOSE hoặc quantum advantage.")
     else:
@@ -348,7 +419,6 @@ def main(argv=None) -> int:
     elif args.command == "leakage-audit":
         print(json.dumps(leakage_audit(paths), indent=2))
     elif args.command == "build-features":
-        import pandas as pd
         prices = pd.read_parquet(paths.normalized / "prices.parquet")
         from .research import attach_point_in_time_features
         features = attach_point_in_time_features(build_features(prices), paths)
@@ -390,6 +460,21 @@ def main(argv=None) -> int:
             paths, args.from_year, args.to_year, args.pause_seconds
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "crawl-historical-price-gaps":
+        result = crawl_historical_hose_price_gaps(
+            paths, args.start, args.end,
+            try_vnstock_fallback=not args.no_vnstock_fallback,
+            pause_seconds=args.pause_seconds,
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "merge-historical-price-checkpoints":
+        result = merge_historical_hose_checkpoints(paths, args.start, args.end)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "crawl-world-bank":
+        result = crawl_world_bank_vietnam_snapshot(paths, args.from_year, args.to_year)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "audit-data-sources":
+        print(json.dumps(audit_available_data_sources(paths), indent=2, ensure_ascii=False))
     elif args.command == "run-experiment":
         out = run_experiment(ROOT, args.config.resolve())
         print_experiment_summary(out)
@@ -447,6 +532,161 @@ def main(argv=None) -> int:
         print(f"universe_rows={len(universe):,}")
         print(json.dumps(leakage_audit(paths), indent=2, ensure_ascii=False))
         out = run_experiment(ROOT, args.config.resolve())
+        print_experiment_summary(out)
+    elif args.command == "run-complete-case":
+        workspace, dataset_manifest = build_complete_case_workspace(
+            paths, args.start, args.end, args.minimum_total_observations,
+            args.maximum_calendar_gap_days,
+        )
+        print(json.dumps(dataset_manifest, indent=2, ensure_ascii=False))
+        complete_paths = Paths(workspace)
+        quality, _ = validate_data(complete_paths)
+        print(json.dumps(quality, indent=2, ensure_ascii=False))
+        temporary_out = run_experiment(workspace, args.config.resolve())
+        (temporary_out / "complete_case_dataset_manifest.json").write_text(
+            json.dumps(dataset_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        temporary_manifest_path = temporary_out / "manifest.json"
+        temporary_manifest = json.loads(temporary_manifest_path.read_text(encoding="utf-8"))
+        temporary_manifest["artifacts"] = sorted(
+            path.relative_to(temporary_out).as_posix()
+            for path in temporary_out.rglob("*") if path.is_file()
+        )
+        temporary_manifest["artifact_sha256"] = {
+            path.relative_to(temporary_out).as_posix(): sha256_file(path)
+            for path in temporary_out.rglob("*")
+            if path.is_file() and path.name != "manifest.json"
+        }
+        temporary_manifest_path.write_text(
+            json.dumps(temporary_manifest, indent=2), encoding="utf-8"
+        )
+        experiments = ROOT / "outputs" / "experiments"
+        experiments.mkdir(parents=True, exist_ok=True)
+        out = experiments / temporary_out.name
+        if out.exists():
+            raise RuntimeError(f"Experiment artifact already exists: {out}")
+        shutil.copytree(temporary_out, out)
+        print(f"Complete-case workspace: {workspace}")
+        print_experiment_summary(out)
+    elif args.command == "run-cafef":
+        if args.existing_workspace:
+            collection_root = args.existing_workspace.resolve()
+            collection_manifest_path = collection_root / "outputs" / "raw" / "manifest.json"
+            if not collection_manifest_path.exists():
+                raise SystemExit(
+                    f"Existing CafeF workspace has no collection manifest: "
+                    f"{collection_manifest_path}"
+                )
+            collection_manifest = json.loads(
+                collection_manifest_path.read_text(encoding="utf-8")
+            )
+        else:
+            requested_tickers = (
+                None if args.tickers.strip().lower() == "auto" else args.tickers.split(",")
+            )
+            collection_root, collection_manifest = crawl_cafef_standalone_workspace(
+                paths, args.start, args.end, requested_tickers, args.max_workers,
+                args.workspace_name,
+            )
+        print(json.dumps(collection_manifest, indent=2, ensure_ascii=False))
+        if collection_manifest.get("status") == "rejected":
+            raise SystemExit(
+                f"CafeF dataset rejected before quality gate. Audit: "
+                f"{collection_root / 'outputs' / 'raw' / 'manifest.json'}"
+            )
+        complete_root, complete_manifest = build_complete_case_workspace(
+            Paths(collection_root), args.start, args.end,
+            args.minimum_total_observations, args.maximum_calendar_gap_days,
+        )
+        cfg = load_config(args.config.resolve())
+        retained = int(complete_manifest["tickers_retained"])
+        required = int(cfg.get("reduction", {}).get("candidate_size", 8))
+        complete_paths = Paths(complete_root)
+        quality, _ = validate_data(complete_paths)
+        initial_quality = quality
+        quality_excluded_tickers: list[str] = []
+        if quality["status"] != "pass":
+            review_path = complete_paths.reports / "return_outlier_review.csv"
+            if review_path.exists():
+                review = pd.read_csv(review_path)
+                quality_excluded_tickers = sorted(
+                    review.loc[
+                        review.get("resolution", pd.Series(dtype=str)).astype(str).eq("unresolved"),
+                        "ticker",
+                    ].dropna().astype(str).unique().tolist()
+                )
+            non_outlier_errors = [
+                issue for issue in quality.get("issues", [])
+                if issue.get("severity") == "error"
+                and issue.get("check") != "unresolved_return_outlier"
+            ]
+            if (
+                quality_excluded_tickers
+                and not non_outlier_errors
+                and retained - len(quality_excluded_tickers) >= required
+            ):
+                complete_root, complete_manifest = build_complete_case_workspace(
+                    Paths(collection_root), args.start, args.end,
+                    args.minimum_total_observations, args.maximum_calendar_gap_days,
+                    forced_excluded_tickers=quality_excluded_tickers,
+                )
+                complete_paths = Paths(complete_root)
+                quality, _ = validate_data(complete_paths)
+                retained = int(complete_manifest["tickers_retained"])
+        acceptance = {
+            "status": "accepted" if quality["status"] == "pass" and retained >= required else "rejected",
+            "quality": quality,
+            "initial_quality": initial_quality,
+            "quality_excluded_tickers": quality_excluded_tickers,
+            "quality_exclusion_policy": (
+                "drop_entire_ticker_with_unresolved_return_outlier; never alter source price"
+            ),
+            "retained_tickers": retained,
+            "minimum_required_tickers": required,
+            "collection_workspace": str(collection_root),
+            "complete_case_workspace": str(complete_root),
+            "created_at": pd.Timestamp.utcnow().isoformat(),
+        }
+        (complete_paths.reports / "cafef_acceptance_gate.json").write_text(
+            json.dumps(acceptance, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        print(json.dumps(acceptance, indent=2, ensure_ascii=False))
+        if acceptance["status"] != "accepted":
+            raise SystemExit(
+                "CafeF panel did not meet the declared system quality gate; no training or "
+                f"backtest was run. Audit: {complete_paths.reports / 'cafef_acceptance_gate.json'}"
+            )
+        temporary_out = run_experiment(complete_root, args.config.resolve())
+        for name, payload in (
+            ("cafef_collection_manifest.json", collection_manifest),
+            ("complete_case_dataset_manifest.json", complete_manifest),
+            ("cafef_acceptance_gate.json", acceptance),
+        ):
+            (temporary_out / name).write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        temporary_manifest_path = temporary_out / "manifest.json"
+        temporary_manifest = json.loads(temporary_manifest_path.read_text(encoding="utf-8"))
+        temporary_manifest["artifacts"] = sorted(
+            path.relative_to(temporary_out).as_posix()
+            for path in temporary_out.rglob("*") if path.is_file()
+        )
+        temporary_manifest["artifact_sha256"] = {
+            path.relative_to(temporary_out).as_posix(): sha256_file(path)
+            for path in temporary_out.rglob("*")
+            if path.is_file() and path.name != "manifest.json"
+        }
+        temporary_manifest_path.write_text(
+            json.dumps(temporary_manifest, indent=2), encoding="utf-8"
+        )
+        experiments = ROOT / "outputs" / "experiments"
+        experiments.mkdir(parents=True, exist_ok=True)
+        out = experiments / temporary_out.name
+        if out.exists():
+            raise RuntimeError(f"Experiment artifact already exists: {out}")
+        shutil.copytree(temporary_out, out)
+        print(f"CafeF collection workspace: {collection_root}")
+        print(f"CafeF accepted workspace: {complete_root}")
         print_experiment_summary(out)
     else:
         out = run_experiment(ROOT, args.config.resolve())

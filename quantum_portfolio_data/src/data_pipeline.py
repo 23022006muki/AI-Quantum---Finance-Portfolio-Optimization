@@ -80,6 +80,244 @@ def create_staging_run(paths: Paths, source: str) -> Path:
     return run
 
 
+def build_complete_case_workspace(
+    source_paths: Paths,
+    start: str,
+    end: str,
+    minimum_total_observations: int = 40,
+    maximum_calendar_gap_days: int = 5,
+    forced_excluded_tickers: list[str] | None = None,
+) -> tuple[Path, dict]:
+    """Create an isolated, analysis-ready real-data workspace.
+
+    The function never changes the canonical normalized panel. It retains only rows
+    with complete OHLCV/provenance fields and securities with enough observations in
+    the requested interval. The resulting security master is restricted to those
+    observed securities so that downstream universe construction cannot reintroduce
+    symbols with no usable price history.
+
+    This is intentionally an *exploratory complete-case* dataset. Selecting securities
+    using full-period data availability can introduce coverage/survivorship selection
+    bias, and an unverified corporate-action adjustment policy remains unverified.
+    """
+    if minimum_total_observations < 1:
+        raise ValueError("minimum_total_observations must be positive")
+    if maximum_calendar_gap_days < 0:
+        raise ValueError("maximum_calendar_gap_days must not be negative")
+    prices_path = source_paths.normalized / "prices.parquet"
+    master_path = source_paths.normalized / "security_master.parquet"
+    if not prices_path.exists() or not master_path.exists():
+        raise FileNotFoundError(
+            "Complete-case construction requires normalized prices.parquet and "
+            "security_master.parquet."
+        )
+
+    prices = pd.read_parquet(prices_path).copy()
+    master = pd.read_parquet(master_path).copy()
+    prices["date"] = pd.to_datetime(prices["date"], errors="coerce")
+    prices["available_at"] = pd.to_datetime(prices["available_at"], errors="coerce")
+    start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
+    forced_excluded = {
+        str(ticker).upper().strip() for ticker in (forced_excluded_tickers or [])
+    }
+    if start_ts > end_ts:
+        raise ValueError("start must not be after end")
+    prices = prices[prices["date"].between(start_ts, end_ts)].copy()
+    if prices.get("data_class", pd.Series(dtype=str)).astype(str).eq("fixture").any():
+        raise ValueError("Complete-case real-data construction refuses fixture observations.")
+
+    required_non_null = [
+        "date", "ticker", "security_id", "open", "high", "low", "close",
+        "adjusted_close", "volume", "trading_value", "source", "source_url",
+        "fetched_at", "available_at", "raw_checksum", "parser_version", "data_class",
+    ]
+    missing_columns = sorted(set(required_non_null) - set(prices.columns))
+    if missing_columns:
+        raise ValueError(f"Price panel is missing complete-case fields: {missing_columns}")
+    numeric = ["open", "high", "low", "close", "adjusted_close", "volume", "trading_value"]
+    complete = prices[required_non_null].notna().all(axis=1)
+    complete &= np.isfinite(prices[numeric].astype(float)).all(axis=1)
+    complete &= prices[["open", "high", "low", "close", "adjusted_close"]].gt(0).all(axis=1)
+    complete &= prices[["volume", "trading_value"]].ge(0).all(axis=1)
+    complete &= prices["high"].ge(prices[["open", "close", "low"]].max(axis=1))
+    complete &= prices["low"].le(prices[["open", "close", "high"]].min(axis=1))
+    complete &= prices["available_at"].ge(prices["date"])
+    complete &= ~prices.duplicated(["ticker", "date"], keep=False)
+    valid_prices = prices.loc[complete].sort_values(["ticker", "date"]).copy()
+
+    master["ticker"] = master["ticker"].astype(str)
+    master["listing_date"] = pd.to_datetime(master["listing_date"], errors="coerce")
+    master["delisting_date"] = pd.to_datetime(master["delisting_date"], errors="coerce")
+    relevant = master[
+        master["listing_date"].le(end_ts)
+        & (master["delisting_date"].isna() | master["delisting_date"].ge(start_ts))
+    ].copy()
+    calendar = pd.DatetimeIndex(sorted(valid_prices["date"].dropna().unique()))
+    calendar_position = {date: position for position, date in enumerate(calendar)}
+    counts = valid_prices.groupby("ticker")["date"].nunique()
+    coverage_diagnostics: dict[str, dict] = {}
+    eligible_tickers: set[str] = set()
+    for row in relevant.itertuples():
+        ticker = str(row.ticker)
+        ticker_dates = pd.DatetimeIndex(sorted(
+            valid_prices.loc[valid_prices["ticker"].astype(str).eq(ticker), "date"].unique()
+        ))
+        listing_start = max(start_ts, row.listing_date)
+        listing_end = (
+            min(end_ts, row.delisting_date) if pd.notna(row.delisting_date) else end_ts
+        )
+        expected = calendar[(calendar >= listing_start) & (calendar <= listing_end)]
+        if len(ticker_dates):
+            leading_gap = int((expected < ticker_dates.min()).sum())
+            trailing_gap = int((expected > ticker_dates.max()).sum())
+            positions = np.asarray([
+                calendar_position[date] for date in ticker_dates if date in calendar_position
+            ])
+            maximum_internal_gap = int(np.diff(positions).max() - 1) if len(positions) > 1 else 0
+        else:
+            leading_gap = trailing_gap = maximum_internal_gap = int(len(expected))
+        usable_rows = int(counts.get(ticker, 0))
+        coverage_diagnostics[ticker] = {
+            "complete_rows": usable_rows,
+            "leading_calendar_gap_days": leading_gap,
+            "trailing_calendar_gap_days": trailing_gap,
+            "maximum_internal_calendar_gap_days": maximum_internal_gap,
+        }
+        if (
+            ticker not in forced_excluded
+            and usable_rows >= minimum_total_observations
+            and leading_gap <= maximum_calendar_gap_days
+            and trailing_gap <= maximum_calendar_gap_days
+            and maximum_internal_gap <= maximum_calendar_gap_days
+        ):
+            eligible_tickers.add(ticker)
+
+    valid_prices = valid_prices[valid_prices["ticker"].astype(str).isin(eligible_tickers)].copy()
+    if valid_prices.empty:
+        raise ValueError("No securities satisfy the complete-case eligibility criteria.")
+    restricted_master = relevant[relevant["ticker"].isin(eligible_tickers)].copy()
+    price_only = eligible_tickers - set(restricted_master["ticker"])
+    if price_only:
+        raise ValueError(
+            "Usable prices have no verified security-master identity: "
+            + ", ".join(sorted(price_only))
+        )
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    digest = hashlib.sha256(
+        (sha256_file(prices_path) + str(start_ts.date()) + str(end_ts.date())
+         + str(minimum_total_observations) + str(maximum_calendar_gap_days)
+         + "|".join(sorted(forced_excluded))).encode("utf-8")
+    ).hexdigest()[:10]
+    workspace = source_paths.root / "outputs" / "complete_case_workspaces" / f"{stamp}-{digest}"
+    target = Paths(workspace)
+    target.ensure()
+    valid_prices.to_parquet(target.normalized / "prices.parquet", index=False)
+    restricted_master.to_parquet(target.normalized / "security_master.parquet", index=False)
+
+    actions_path = source_paths.normalized / "corporate_actions.parquet"
+    if actions_path.exists():
+        shutil.copy2(actions_path, target.normalized / "corporate_actions.parquet")
+
+    excluded_rows = []
+    observed_counts = prices.groupby("ticker")["date"].nunique()
+    for row in relevant.itertuples():
+        ticker = str(row.ticker)
+        if ticker in eligible_tickers:
+            continue
+        observed = int(observed_counts.get(ticker, 0))
+        diagnostic = coverage_diagnostics.get(ticker, {})
+        usable = int(diagnostic.get("complete_rows", 0))
+        if ticker in forced_excluded:
+            reason = "forced_quality_exclusion"
+        elif observed == 0:
+            reason = "no_price_observations_in_requested_period"
+        elif usable < minimum_total_observations:
+            reason = "fewer_than_minimum_complete_observations"
+        elif diagnostic.get("leading_calendar_gap_days", 0) > maximum_calendar_gap_days:
+            reason = "unexplained_leading_calendar_gap"
+        elif diagnostic.get("trailing_calendar_gap_days", 0) > maximum_calendar_gap_days:
+            reason = "unexplained_trailing_calendar_gap"
+        elif diagnostic.get("maximum_internal_calendar_gap_days", 0) > maximum_calendar_gap_days:
+            reason = "unexplained_internal_calendar_gap"
+        else:
+            reason = "failed_complete_case_contract"
+        excluded_rows.append({
+            "ticker": ticker,
+            "observed_rows": observed,
+            "complete_rows": usable,
+            "minimum_required": minimum_total_observations,
+            "leading_calendar_gap_days": diagnostic.get("leading_calendar_gap_days"),
+            "trailing_calendar_gap_days": diagnostic.get("trailing_calendar_gap_days"),
+            "maximum_internal_calendar_gap_days": diagnostic.get(
+                "maximum_internal_calendar_gap_days"
+            ),
+            "maximum_allowed_calendar_gap_days": maximum_calendar_gap_days,
+            "reason": reason,
+        })
+    exclusions = pd.DataFrame(excluded_rows, columns=[
+        "ticker", "observed_rows", "complete_rows", "minimum_required",
+        "leading_calendar_gap_days", "trailing_calendar_gap_days",
+        "maximum_internal_calendar_gap_days", "maximum_allowed_calendar_gap_days", "reason",
+    ]).sort_values("ticker")
+    exclusions.to_csv(target.reports / "complete_case_exclusions.csv", index=False)
+
+    manifest = {
+        "dataset_kind": "exploratory_complete_case_real_prices",
+        "label": "EXPLORATORY ONLY - RESTRICTED OBSERVED HOSE PANEL",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "requested_start": str(start_ts.date()),
+        "requested_end": str(end_ts.date()),
+        "minimum_total_observations": int(minimum_total_observations),
+        "maximum_calendar_gap_days": int(maximum_calendar_gap_days),
+        "forced_quality_exclusions": sorted(forced_excluded),
+        "source_price_dataset": str(prices_path),
+        "source_price_dataset_sha256": sha256_file(prices_path),
+        "source_security_master": str(master_path),
+        "source_security_master_sha256": sha256_file(master_path),
+        "records_before_row_filter": int(len(prices)),
+        "records_failing_complete_row_contract": int((~complete).sum()),
+        "records_retained": int(len(valid_prices)),
+        "tickers_observed": int(prices["ticker"].nunique()),
+        "tickers_retained": int(valid_prices["ticker"].nunique()),
+        "relevant_master_tickers": int(relevant["ticker"].nunique()),
+        "relevant_tickers_excluded": int(len(exclusions)),
+        "excluded_tickers": exclusions["ticker"].tolist(),
+        "price_dataset_sha256": sha256_file(target.normalized / "prices.parquet"),
+        "security_master_sha256": sha256_file(target.normalized / "security_master.parquet"),
+        "selection_rule": (
+            "complete OHLCV/provenance row contract and at least "
+            f"{minimum_total_observations} observations with no unexplained leading, "
+            f"trailing or internal calendar gap above {maximum_calendar_gap_days} sessions"
+        ),
+        "limitations": [
+            "full_period_availability_filter_can_create_coverage_or_survivorship_selection_bias",
+            "corporate_action_adjustment_policy_is_not_verified",
+            "no_verified_total_return_benchmark",
+            "optional_fundamental_macro_and_foreign_flow_features_are_not_used",
+            "results_must_not_be_labeled_confirmatory_or_full_hose_research",
+        ],
+    }
+    (target.raw / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    (target.reports / "COMPLETE_CASE_DATASET.md").write_text(
+        "# Exploratory complete-case HOSE dataset\n\n"
+        f"- Period: `{manifest['requested_start']}` to `{manifest['requested_end']}`\n"
+        f"- Retained: **{manifest['tickers_retained']} tickers / "
+        f"{manifest['records_retained']:,} rows**\n"
+        f"- Excluded relevant tickers: **{manifest['relevant_tickers_excluded']}**\n"
+        f"- Minimum observations: **{minimum_total_observations}**\n\n"
+        f"- Maximum unexplained calendar gap: **{maximum_calendar_gap_days} sessions**\n\n"
+        "This dataset is suitable for an exploratory end-to-end run. It is not a "
+        "replacement for a verified point-in-time, corporate-action-adjusted, "
+        "full-HOSE research panel. See `complete_case_exclusions.csv` and the "
+        "limitations in `outputs/raw/manifest.json`.\n",
+        encoding="utf-8",
+    )
+    return workspace, manifest
+
+
 def promote_staged_file(paths: Paths, staged_file: Path, target_name: str) -> dict:
     """Atomically promote one validated file and retain a recoverable previous copy."""
     if not staged_file.is_file():

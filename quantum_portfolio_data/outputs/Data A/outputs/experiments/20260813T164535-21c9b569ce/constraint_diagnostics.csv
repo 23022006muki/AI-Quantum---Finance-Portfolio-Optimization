@@ -1,0 +1,13 @@
+fold,decision_time,selected_tickers,long_only,full_investment,configured_lower_bound,configured_upper_bound,effective_upper_bounds,portfolio_notional_vnd,max_adv_participation,capacity_constraint_applied,sector_cap,sector_metadata_available,sector_constraint_applied,sector_constraint_reason,max_one_way_turnover,prior_exit_weight,remaining_turnover_limit
+0,2022-04-29,APG|PVD|SBT|KSB,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,0.0,
+1,2022-08-30,MSB|MBB|BVH|HDB,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,0.9999999999999999,
+2,2022-12-30,HPX|NVL|HTN|ACB,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0,
+3,2023-04-28,TPB|BAF|HDB|CDC,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0,
+4,2023-08-30,VSH|TDM|SJD|PGC,True,True,0.0,0.4,0.4|0.4|0.4|0.391727625,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0,
+5,2023-12-29,ANV|ORS|VCG|CII,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0000000000000002,
+6,2024-03-29,KSB|KBC|VPG|HDG,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0,
+7,2024-07-30,DBC|GIL|HDG|ELC,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0,
+8,2024-11-29,VCB|VIB|VPI|LPB,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0,
+9,2025-03-28,ACB|VCB|C32|SMB,True,True,0.0,0.4,0.4|0.4|0.317151|0.185855625,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,0.6050378690008695,
+10,2025-07-30,CTG|VNM|IMP|SAB,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0000000000000002,
+11,2025-11-28,DXG|STB|GAS|SMB,True,True,0.0,0.4,0.4|0.4|0.4|0.4,100000000,0.05,True,0.5,False,False,disabled_or_insufficient_sector_metadata,,1.0,

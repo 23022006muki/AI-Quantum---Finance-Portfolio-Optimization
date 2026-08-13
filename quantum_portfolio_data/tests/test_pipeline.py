@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data_pipeline import Paths, build_universe, generate_fixture, leakage_audit, validate_data
+from src.data_pipeline import (
+    Paths, build_complete_case_workspace, build_universe, generate_fixture, leakage_audit,
+    validate_data,
+)
 from src.research import (
     aligned_previous_weights, attach_point_in_time_features, build_features, drift_weights,
     energy, ewma_mean_cov, exact_solver, feasible_states, optimize_weights,
@@ -22,6 +25,41 @@ def test_fixture_quality_and_universe(tmp_path: Path):
     universe = build_universe(paths)
     assert not universe.empty
     assert (universe["decision_time"] >= pd.Timestamp("2022-01-01")).all()
+
+
+def test_complete_case_workspace_is_isolated_and_excludes_short_histories(tmp_path: Path):
+    paths = Paths(tmp_path)
+    generate_fixture(paths, "2022-01-01", "2022-12-31", ["AAA", "BBB"], 7)
+    source_prices = paths.normalized / "prices.parquet"
+    prices = pd.read_parquet(source_prices)
+    prices["data_class"] = "real"
+    prices["source"] = "test_real_source"
+    prices["source_url"] = "https://example.test/prices"
+    prices["adjustment_policy"] = "unverified"
+    prices = prices[~(prices["ticker"].eq("BBB") & (prices.groupby("ticker").cumcount() >= 5))]
+    prices.to_parquet(source_prices, index=False)
+    master_path = paths.normalized / "security_master.parquet"
+    master = pd.read_parquet(master_path)
+    master["data_class"] = "real"
+    master["source"] = "test_real_source"
+    master["source_url"] = "https://example.test/master"
+    master.to_parquet(master_path, index=False)
+
+    before = source_prices.read_bytes()
+    workspace, manifest = build_complete_case_workspace(
+        paths, "2022-01-01", "2022-12-31", minimum_total_observations=40,
+    )
+    retained = pd.read_parquet(Paths(workspace).normalized / "prices.parquet")
+    restricted_master = pd.read_parquet(Paths(workspace).normalized / "security_master.parquet")
+    exclusions = pd.read_csv(Paths(workspace).reports / "complete_case_exclusions.csv")
+
+    assert set(retained["ticker"]) == {"AAA"}
+    assert set(restricted_master["ticker"]) == {"AAA"}
+    assert exclusions.set_index("ticker").loc["BBB", "reason"] == (
+        "fewer_than_minimum_complete_observations"
+    )
+    assert manifest["tickers_retained"] == 1
+    assert source_prices.read_bytes() == before
 
 
 def test_dynamic_universe_uses_only_trailing_liquidity(tmp_path: Path):

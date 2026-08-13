@@ -39,8 +39,9 @@ corporate-action adjustment hoặc lịch sử listing để thay security maste
 
 - Security master HOSE 2015–2025 đã được lấy từ nguồn chính thức bằng
   `crawl-hose-security-master`; không cần cung cấp lại trừ khi muốn mở rộng giai đoạn.
-- Panel OHLC cần bao phủ toàn bộ các mã đủ điều kiện trước khi chọn top 300. Panel hiện tại còn
-  thiếu 145/445 mã giao cắt giai đoạn 2020–2025, trong đó có cổ phiếu đã hủy niêm yết.
+- Panel OHLC hiện bao phủ 444/445 mã giao cắt giai đoạn 2020–2025. Mã VPK niêm yết đến
+  13/01/2020 nhưng không có phiên HOSE quan sát được trong giai đoạn trên các nguồn công khai
+  đã thử; cần dữ liệu exchange/vendor có cấp phép hoặc quy tắc ngoại lệ no-trading được thẩm định.
 - Corporate actions theo `docs/contracts/corporate_actions_template.csv`.
 - Total-return benchmark theo `docs/contracts/benchmark_template.csv`.
 - Tài liệu phương pháp điều chỉnh giá để hoàn thiện price-adjustment contract.

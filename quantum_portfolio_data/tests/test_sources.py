@@ -4,11 +4,15 @@ import pandas as pd
 import pytest
 
 from src.sources import (
-    SSIFastConnectAdapter, SourceConfigurationError, TradingEconomicsAdapter, VietstockAdapter,
-    _normalize_fdr_ohlc, _normalize_vnstock_ohlc, import_point_in_time_table,
+    CafeFPublicHistoryAdapter, SSIFastConnectAdapter, SourceConfigurationError,
+    TradingEconomicsAdapter, VietstockAdapter,
+    crawl_cafef_standalone_workspace,
+    _normalize_cafef_ohlc, _normalize_fdr_ohlc, _normalize_vnstock_ohlc,
+    import_point_in_time_table,
     normalize_hose_security_master, normalize_trading_economics_ohlc,
     normalize_vietstock_ohlc,
 )
+from src.data_pipeline import Paths, generate_fixture
 
 
 def test_ssi_adapter_fails_closed_without_credentials(monkeypatch):
@@ -79,6 +83,64 @@ def test_fdr_normalization_shifts_utc_session_date():
     out = _normalize_fdr_ohlc(raw, "vcb", "https://example.test")
     assert out.loc[0, "date"] == pd.Timestamp("2020-01-02")
     assert out.loc[0, "adjusted_close"] == 10_250
+
+
+def test_fdr_normalization_rolls_friday_to_monday():
+    raw = pd.DataFrame({
+        "Open": [10_000], "High": [11_000], "Low": [9_000],
+        "Close": [10_500], "Adj Close": [10_250], "Volume": [100],
+    }, index=pd.DatetimeIndex(["2020-05-22"], name="Date"))
+    out = _normalize_fdr_ohlc(raw, "vcb", "https://example.test")
+    assert out.loc[0, "date"] == pd.Timestamp("2020-05-25")
+
+
+def test_cafef_normalization_converts_reported_units():
+    raw = pd.DataFrame([{
+        "Ngay": "02/01/2020", "GiaMoCua": 10.0, "GiaCaoNhat": 11.0,
+        "GiaThapNhat": 9.0, "GiaDongCua": 10.5, "GiaDieuChinh": 10.25,
+        "KhoiLuongKhopLenh": 100, "GiaTriKhopLenh": 0.00105,
+    }])
+    out = _normalize_cafef_ohlc(raw, "vcb")
+    assert out.loc[0, "ticker"] == "VCB"
+    assert out.loc[0, "close"] == 10_500
+    assert out.loc[0, "adjusted_close"] == 10_250
+    assert out.loc[0, "trading_value"] == 1_050_000
+    assert out.loc[0, "adjustment_policy"] == "unverified"
+
+
+def test_cafef_standalone_workspace_is_isolated_and_uses_official_identity(
+    tmp_path: Path, monkeypatch,
+):
+    tickers = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH"]
+    paths = Paths(tmp_path)
+    generate_fixture(paths, "2020-01-01", "2020-12-31", tickers, 7)
+    master_path = paths.normalized / "security_master.parquet"
+    master = pd.read_parquet(master_path)
+    master["history_method"] = "exchange_listing_history"
+    master["data_class"] = "real"
+    master["source"] = "official_exchange_test"
+    master["source_url"] = "https://example.test/hose"
+    master.to_parquet(master_path, index=False)
+
+    def fake_daily(_self, symbol, _start, _end):
+        return pd.DataFrame([{
+            "Symbol": symbol, "Ngay": "02/01/2020", "GiaMoCua": 10.0,
+            "GiaCaoNhat": 11.0, "GiaThapNhat": 9.0, "GiaDongCua": 10.5,
+            "GiaDieuChinh": 10.25, "KhoiLuongKhopLenh": 100,
+            "GiaTriKhopLenh": 0.00105,
+        }])
+
+    monkeypatch.setattr(CafeFPublicHistoryAdapter, "daily_ohlc", fake_daily)
+    canonical_before = (paths.normalized / "prices.parquet").read_bytes()
+    workspace, manifest = crawl_cafef_standalone_workspace(
+        paths, "2020-01-01", "2020-12-31", tickers, max_workers=2,
+    )
+    standalone = pd.read_parquet(Paths(workspace).normalized / "prices.parquet")
+    standalone_master = pd.read_parquet(Paths(workspace).normalized / "security_master.parquet")
+    assert manifest["collected_count"] == 8
+    assert set(standalone["source"]) == {"cafef_public_history"}
+    assert set(standalone["security_id"]) == set(standalone_master["security_id"])
+    assert (paths.normalized / "prices.parquet").read_bytes() == canonical_before
 
 
 def test_trading_economics_fails_closed_without_api_key(monkeypatch):

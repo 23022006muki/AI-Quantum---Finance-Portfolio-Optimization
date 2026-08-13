@@ -1,0 +1,57 @@
+{
+  "status": "pass_for_exploratory_with_declared_limitations",
+  "checks": {
+    "universe_definition_declared": true,
+    "historical_universe_contract": true,
+    "historical_universe_source_trusted": true,
+    "historical_universe_fixture_free": true,
+    "historical_universe_times_valid": true,
+    "historical_universe_price_coverage_complete": true,
+    "price_security_identity_matches_master": true,
+    "universe_snapshots_built_with_provenance": true,
+    "universe_snapshot_times_valid": true,
+    "universe_snapshot_source_trusted": true,
+    "universe_snapshot_fixture_free": true,
+    "historical_membership_events_available_when_required": true,
+    "real_prices_only": true,
+    "auxiliary_tables_fixture_free": true,
+    "corporate_actions_point_in_time_available_when_required": true,
+    "price_adjustment_policy_verified": false,
+    "price_adjustment_contract_matches_dataset": false,
+    "availability_not_before_observation": true
+  },
+  "blockers": [],
+  "limitations": [
+    "index_membership_not_configured",
+    "financial_statements_not_configured",
+    "macro_not_configured",
+    "foreign_flow_not_configured"
+  ],
+  "auxiliary_tables": {
+    "index_membership": "missing",
+    "corporate_actions": "real_or_empty",
+    "financial_statements": "missing",
+    "macro": "missing",
+    "foreign_flow": "missing"
+  },
+  "universe_definition": "hose_all_listed",
+  "index_code": null,
+  "adjustment_policies": [
+    "unverified"
+  ],
+  "price_adjustment_contract": {},
+  "corporate_actions_required": false,
+  "historical_universe_price_coverage": {
+    "required_tickers": 394,
+    "observed_tickers": 394,
+    "missing_count": 0,
+    "missing_tickers": []
+  },
+  "unmatched_price_security_ids": [],
+  "note": "Historical universe/membership, corporate actions and adjustment policy are core research contracts. Optional PIT features are excluded when unavailable. Fixture auxiliary tables block a real-data run. The original blockers were explicitly accepted only for this exploratory run; this does not satisfy the research contract.",
+  "audit_status_before_exploratory_acceptance": "blocked",
+  "accepted_exploratory_limitations": [
+    "price_adjustment_contract_matches_dataset",
+    "price_adjustment_policy_verified"
+  ]
+}

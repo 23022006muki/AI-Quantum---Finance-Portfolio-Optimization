@@ -7,9 +7,11 @@ Hệ thống point-in-time cho chuỗi:
 
 ## Trạng thái dữ liệu
 
-Workspace có panel giá thị trường 300 mã giai đoạn 2020–2025, nhưng chưa có lịch sử
-niêm yết/hủy niêm yết HOSE, hợp đồng điều chỉnh giá và benchmark total-return đủ provenance.
-Data-quality hiện còn 46 outlier lợi nhuận điều chỉnh chưa được xác minh.
+Workspace có panel giá thị trường 444/445 mã HOSE giao cắt giai đoạn 2020–2025 và
+security master niêm yết/hủy niêm yết chính thức. Mã VPK không có phiên HOSE quan sát được
+trong khoảng 01–13/01/2020 trên các nguồn công khai đã thử. Hệ thống vẫn thiếu hợp đồng
+điều chỉnh giá và benchmark total-return đủ provenance. Sau đối soát CafeF và correction
+có ledger/backup, data-quality hiện pass với 0 outlier lợi nhuận điều chỉnh chưa giải quyết.
 Vì vậy research mode hiện **fail-closed**: hệ thống tạo artifact `blocked` rồi dừng trước
 huấn luyện/backtest. Adapter `fixture` chỉ kiểm thử phần mềm và mọi artifact đều ghi
 **NOT RESEARCH RESULT**. Hệ thống không suy ngày niêm yết từ phiên giá đầu tiên, không
@@ -51,6 +53,43 @@ hợp đồng point-in-time chưa đủ):
 python -m src.cli run-full --config configs/hose300_real.yaml
 ```
 
+Nếu cần chạy ngay trên phần dữ liệu thật hiện đã đủ trường, dùng chế độ complete-case
+khám phá. Lệnh này tạo workspace riêng, giữ các bản ghi đủ OHLCV/provenance và chỉ giữ
+mã có tối thiểu 40 quan sát trong giai đoạn 2020–2025; panel chuẩn không bị thay đổi:
+
+```powershell
+python -m src.cli run-complete-case --config configs/hose300_complete_case_exploratory.yaml `
+  --from 2020-01-01 --to 2025-12-31 --minimum-total-observations 40 `
+  --maximum-calendar-gap-days 5
+```
+
+Kết quả được gắn nhãn **EXPLORATORY ONLY**. Việc lọc theo độ phủ toàn kỳ có thể gây
+coverage/survivorship selection bias và không thay thế hợp đồng điều chỉnh corporate
+actions; vì vậy kết quả này không được trình bày như kiểm định confirmatory toàn HOSE.
+
+Tạo và thẩm định một panel **CafeF-only** hoàn toàn riêng; hệ thống chỉ train/backtest
+khi còn tối thiểu 8 mã sau quality gate:
+
+```powershell
+python -m src.cli run-cafef --config configs/cafef_standalone_exploratory.yaml `
+  --from 2020-01-01 --to 2025-12-31 `
+  --tickers VCB,BID,CTG,MBB,HPG,FPT,VNM,VIC,GAS,MSN,MWG,SSI `
+  --max-workers 3 --minimum-total-observations 40 --maximum-calendar-gap-days 5
+```
+
+CafeF được xem là nguồn tổng hợp tham chiếu, không phải feed chính thức của HOSE. Raw
+response, checksum, lỗi theo mã, coverage và acceptance gate được lưu trong workspace
+riêng. Panel chuẩn chỉ được đọc để lấy security master chính thức và không bị ghi đè.
+
+Crawl toàn bộ security master, checkpoint có thể resume và đặt tên thư mục `data CafeF`:
+
+```powershell
+python -m src.cli run-cafef --config configs/cafef_all_exploratory.yaml `
+  --from 2020-01-01 --to 2025-12-31 --tickers auto `
+  --workspace-name "data CafeF" --max-workers 4 `
+  --minimum-total-observations 40 --maximum-calendar-gap-days 5
+```
+
 Import CSV thật được cấp quyền:
 
 ```powershell
@@ -75,6 +114,28 @@ python -m src.cli crawl-hose-security-master --from-year 2015 --to-year 2025
 
 Lệnh này gắn ISIN ổn định vào panel giá, cách ly các dòng nằm ngoài khoảng niêm yết HOSE và
 lưu bản cũ có thể phục hồi. Nó không thay thế nguồn OHLC, corporate actions hay benchmark.
+
+Hoàn thiện checkpoint giá cho toàn bộ security master lịch sử rồi merge an toàn:
+
+```powershell
+python -m src.cli crawl-historical-price-gaps --from 2020-01-01 --to 2025-12-31
+python -m src.cli merge-historical-price-checkpoints --from 2020-01-01 --to 2025-12-31
+```
+
+Collector dùng FDR/Yahoo trước, vnstock/KBS và CafeF làm fallback; checkpoint không tự
+promote. Chỉ lệnh merge mới kiểm tra OHLC, khoảng niêm yết và stable security ID trước khi
+thay panel, đồng thời lưu bản cũ có thể phục hồi.
+
+Lấy snapshot vĩ mô Việt Nam từ World Bank API v2 không cần API key và kiểm toán nguồn:
+
+```powershell
+python -m src.cli crawl-world-bank --from-year 2015 --to-year 2025
+python -m src.cli audit-data-sources
+```
+
+World Bank snapshot được lưu riêng dưới tên `macro_world_bank_snapshot.parquet` với
+`pit_eligible=false`; nó không được dùng trong walk-forward backtest vì API không cung cấp
+release vintage cho từng quan sát lịch sử.
 
 Đối chiếu OHLC bằng API chính thức của Trading Economics:
 

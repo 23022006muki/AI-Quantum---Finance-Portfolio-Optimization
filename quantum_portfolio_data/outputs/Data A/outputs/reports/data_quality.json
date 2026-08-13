@@ -1,0 +1,11 @@
+{
+  "status": "pass",
+  "data_class": [
+    "real"
+  ],
+  "records": 565471,
+  "tickers": 394,
+  "start": "2020-01-02",
+  "end": "2025-12-31",
+  "issues": []
+}

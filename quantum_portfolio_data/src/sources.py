@@ -5,6 +5,7 @@ import json
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -583,7 +584,7 @@ def crawl_vnstock_hose(
     listing = fdr.StockListing("HOSE").copy()
     listing["Symbol"] = listing["Symbol"].astype(str).str.upper().str.strip()
     listing = listing[
-        listing["Symbol"].str.fullmatch(r"[A-Z]{3}")
+        listing["Symbol"].str.fullmatch(r"[A-Z0-9]{3}")
     ].drop_duplicates("Symbol")
     if tickers:
         requested = [item.strip().upper() for item in tickers if item.strip()]
@@ -733,10 +734,13 @@ def _normalize_fdr_ohlc(
     missing = sorted(required - set(out.columns))
     if missing:
         raise ValueError(f"FinanceDataReader response missing normalized fields: {missing}")
-    # Yahoo's HOSE timestamps are represented as the prior UTC calendar date.
+    # Yahoo/FDR labels these HOSE bars on the prior provider business date. A
+    # calendar-day shift incorrectly places Monday sessions on Saturday; roll to
+    # the next business day instead. The exact exchange calendar remains a source
+    # limitation and is cross-checked against the official listing intervals.
     out["date"] = (
         pd.to_datetime(out["date"]).dt.tz_localize(None).dt.normalize()
-        + pd.Timedelta(days=1)
+        + pd.offsets.BDay(1)
     )
     for column in ["open", "high", "low", "close", "adjusted_close", "volume"]:
         if column in out:
@@ -778,7 +782,7 @@ def crawl_fdr_hose(
     listing = fdr.StockListing("HOSE").copy()
     listing["Symbol"] = listing["Symbol"].astype(str).str.upper().str.strip()
     listing = listing[
-        listing["Symbol"].str.fullmatch(r"[A-Z]{3}")
+        listing["Symbol"].str.fullmatch(r"[A-Z0-9]{3}")
     ].drop_duplicates("Symbol")
     if tickers:
         requested = [item.strip().upper() for item in tickers if item.strip()]
@@ -908,7 +912,7 @@ def merge_hose_checkpoints(paths: Paths, target_tickers: int = 300) -> dict:
     listing = fdr.StockListing("HOSE").copy()
     listing["Symbol"] = listing["Symbol"].astype(str).str.upper().str.strip()
     listing = listing[
-        listing["Symbol"].str.fullmatch(r"[A-Z]{3}")
+        listing["Symbol"].str.fullmatch(r"[A-Z0-9]{3}")
     ].drop_duplicates("Symbol")
     fdr_dir = paths.raw / "fdr_ohlcv"
     vnstock_dir = paths.raw / "vnstock_ohlcv"
@@ -1170,6 +1174,477 @@ def crawl_trading_economics_crosscheck(
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     (paths.raw / "trading_economics_manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return manifest
+
+
+class CafeFPublicHistoryAdapter:
+    """Public CafeF price-history endpoint used only as a last-resort gap source."""
+
+    endpoint = "https://cafef.vn/du-lieu/Ajax/PageNew/DataHistory/PriceHistory.ashx"
+    page_url = "https://cafef.vn/du-lieu/lich-su-giao-dich-{ticker}-1.chn"
+
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers["User-Agent"] = "Mozilla/5.0 (compatible; academic-research/0.1)"
+
+    def daily_ohlc(self, symbol: str, start: str, end: str) -> pd.DataFrame:
+        symbol = symbol.upper().strip()
+        start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
+        rows: list[dict[str, Any]] = []
+        # The public UI is reliable only for bounded date ranges.
+        left = start_ts
+        while left <= end_ts:
+            # The web UI enforces a roughly three-month window even if a longer
+            # range is sent to the endpoint. Chunk explicitly to avoid silent loss.
+            right = min(end_ts, left + pd.Timedelta(days=79))
+            page_index = 1
+            chunk_rows = 0
+            while True:
+                response = self.session.get(
+                    self.endpoint,
+                    params={
+                        "ExchangeType": "HOSE", "Symbol": symbol,
+                        "StartDate": left.strftime("%m/%d/%Y"),
+                        "EndDate": right.strftime("%m/%d/%Y"),
+                        "PageIndex": page_index, "PageSize": 40,
+                    },
+                    headers={"Referer": self.page_url.format(ticker=symbol.lower())},
+                    timeout=30,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                data = (payload or {}).get("Data") or {}
+                batch = data.get("Data") or []
+                rows.extend(batch)
+                chunk_rows += len(batch)
+                total = int(data.get("TotalCount") or 0)
+                # The endpoint currently returns 20 records even when PageSize is
+                # larger, so termination must use observed rows, not requested size.
+                if not batch or chunk_rows >= total:
+                    break
+                page_index += 1
+            left = right + pd.Timedelta(days=1)
+        return pd.DataFrame(rows)
+
+
+def _normalize_cafef_ohlc(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    aliases = {
+        "Ngay": "date", "GiaMoCua": "open", "GiaCaoNhat": "high",
+        "GiaThapNhat": "low", "GiaDongCua": "close", "GiaDieuChinh": "adjusted_close",
+        "KhoiLuongKhopLenh": "volume", "GiaTriKhopLenh": "trading_value",
+    }
+    out = df.rename(columns=aliases).copy()
+    required = {"date", "open", "high", "low", "close", "volume"}
+    missing = sorted(required - set(out.columns))
+    if missing:
+        raise ValueError(f"CafeF response missing normalized fields: {missing}")
+    out["date"] = pd.to_datetime(out["date"], dayfirst=True, errors="coerce").dt.normalize()
+    for column in ["open", "high", "low", "close", "adjusted_close"]:
+        out[column] = pd.to_numeric(out.get(column), errors="coerce") * 1000.0
+    out["volume"] = pd.to_numeric(out["volume"], errors="coerce")
+    # CafeF reports matched value in billions of VND.
+    reported_value = pd.to_numeric(out.get("trading_value"), errors="coerce") * 1_000_000_000.0
+    out["trading_value"] = reported_value.fillna(out["volume"] * out["close"])
+    out["ticker"] = ticker.upper()
+    out["security_id"] = f"HOSE:{ticker.upper()}"
+    out["adjusted_close"] = out["adjusted_close"].fillna(out["close"])
+    out["source"] = "cafef_public_history"
+    out["source_url"] = CafeFPublicHistoryAdapter.page_url.format(ticker=ticker.lower())
+    out["fetched_at"] = datetime.now(timezone.utc).isoformat()
+    out["available_at"] = out["date"] + pd.Timedelta(days=1)
+    raw = out.to_csv(index=False).encode("utf-8")
+    out["raw_checksum"] = hashlib.sha256(raw).hexdigest()
+    out["parser_version"] = "cafef-public-history-v1"
+    out["data_class"] = "real"
+    out["adjustment_policy"] = "unverified"
+    return out[PRICE_COLUMNS].dropna(
+        subset=["date", "open", "high", "low", "close", "volume"]
+    ).drop_duplicates(["date", "ticker"]).sort_values(["date", "ticker"])
+
+
+DEFAULT_CAFEF_SYSTEM_TICKERS = (
+    "VCB", "BID", "CTG", "MBB", "HPG", "FPT", "VNM", "VIC",
+    "GAS", "MSN", "MWG", "SSI",
+)
+
+
+def crawl_cafef_standalone_workspace(
+    paths: Paths,
+    start: str,
+    end: str,
+    tickers: list[str] | None = None,
+    max_workers: int = 3,
+    workspace_name: str | None = None,
+) -> tuple[Path, dict]:
+    """Build a versioned CafeF-only price workspace without promoting it.
+
+    CafeF is treated as an aggregated public reference source. Each source response is
+    content-addressed, the official HOSE security master supplies identity/listing
+    intervals, and failed symbols remain explicit in the manifest. This function never
+    changes the canonical normalized panel.
+    """
+    master_all = _historically_relevant_hose_master(paths, start, end)
+    requested_input = (
+        sorted(master_all["ticker"].astype(str).unique())
+        if tickers is None else tickers
+    )
+    requested = list(dict.fromkeys(
+        str(ticker).upper().strip()
+        for ticker in requested_input
+        if str(ticker).strip()
+    ))
+    if len(requested) < 8:
+        raise ValueError("A standalone CafeF system panel requires at least 8 tickers.")
+    if max_workers < 1 or max_workers > 4:
+        raise ValueError("max_workers must be between 1 and 4 to limit source load.")
+    start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
+    master = master_all
+    master = master[master["ticker"].isin(requested)].copy()
+    master_tickers = set(master["ticker"])
+    unknown = sorted(set(requested) - master_tickers)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    digest = hashlib.sha256(
+        ("|".join(requested) + str(start_ts.date()) + str(end_ts.date())).encode("utf-8")
+    ).hexdigest()[:10]
+    if workspace_name:
+        if not re.fullmatch(r"[\w .-]+", workspace_name, flags=re.UNICODE):
+            raise ValueError("workspace_name may contain only letters, numbers, spaces, dots and dashes")
+        workspace = paths.root / "outputs" / workspace_name
+    else:
+        workspace = paths.root / "outputs" / "cafef_workspaces" / f"{stamp}-{digest}"
+    target = Paths(workspace)
+    target.ensure()
+    raw_response_dir = target.raw / "responses"
+    checkpoint_dir = target.raw / "normalized_checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    def collect(symbol: str) -> dict[str, Any]:
+        raw = CafeFPublicHistoryAdapter().daily_ohlc(symbol, start, end)
+        if raw.empty:
+            raise RuntimeError("CafeF returned no observations")
+        archive = _archive_raw_frame(raw_response_dir, symbol, raw)
+        normalized = _normalize_cafef_ohlc(raw, symbol)
+        candidates = master[master["ticker"].eq(symbol)]
+        if len(candidates) != 1:
+            raise RuntimeError("official security identity is missing or ambiguous")
+        security = candidates.iloc[0]
+        active_end = (
+            min(end_ts, security["delisting_date"])
+            if pd.notna(security["delisting_date"]) else end_ts
+        )
+        normalized = normalized[
+            pd.to_datetime(normalized["date"]).between(
+                max(start_ts, security["listing_date"]), active_end
+            )
+        ].copy()
+        if normalized.empty:
+            raise RuntimeError("CafeF observations do not overlap the official HOSE interval")
+        normalized["security_id"] = security["security_id"]
+        normalized["raw_checksum"] = archive["sha256"]
+        normalized.to_parquet(checkpoint_dir / f"{symbol}.parquet", index=False)
+        return {
+            "ticker": symbol, "records": int(len(normalized)),
+            "start": str(pd.to_datetime(normalized["date"]).min().date()),
+            "end": str(pd.to_datetime(normalized["date"]).max().date()),
+            "raw_response": archive,
+        }
+
+    existing_checkpoints = {
+        path.stem.upper(): path for path in checkpoint_dir.glob("*.parquet")
+    }
+    completed: list[dict[str, Any]] = []
+    failures: list[dict[str, str]] = [
+        {"ticker": ticker, "error": "not_in_official_hose_master"} for ticker in unknown
+    ]
+    collectable = [
+        ticker for ticker in requested
+        if ticker in master_tickers and ticker not in existing_checkpoints
+    ]
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_ticker = {executor.submit(collect, ticker): ticker for ticker in collectable}
+        for future in as_completed(future_to_ticker):
+            ticker = future_to_ticker[future]
+            try:
+                item = future.result()
+                completed.append(item)
+                print(
+                    f"[CafeF {len(completed):02d}/{len(collectable):02d}] "
+                    f"{ticker}: {item['records']:,} rows",
+                    flush=True,
+                )
+            except Exception as exc:
+                failures.append({
+                    "ticker": ticker,
+                    "error": f"{type(exc).__name__}: {str(exc)[:300]}",
+                })
+                print(f"[CafeF] {ticker}: rejected ({type(exc).__name__})", flush=True)
+
+    checkpoint_files = sorted(checkpoint_dir.glob("*.parquet"))
+    if not checkpoint_files:
+        manifest = {
+            "status": "rejected", "source": "cafef_public_history",
+            "requested_tickers": requested, "failures": failures,
+            "start": start, "end": end,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        (target.raw / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        return workspace, manifest
+
+    prices = pd.concat(
+        [pd.read_parquet(path) for path in checkpoint_files], ignore_index=True
+    ).sort_values(["ticker", "date"])
+    target_master = master[master["ticker"].isin(prices["ticker"].unique())].copy()
+    prices.to_parquet(target.normalized / "prices.parquet", index=False)
+    target_master.to_parquet(target.normalized / "security_master.parquet", index=False)
+    actions_path = paths.normalized / "corporate_actions.parquet"
+    if actions_path.exists():
+        # The current table may be empty; copying it preserves the schema without
+        # claiming CafeF supplied or verified corporate actions.
+        target_actions = pd.read_parquet(actions_path)
+        if not target_actions.empty and "ticker" in target_actions:
+            target_actions = target_actions[target_actions["ticker"].isin(target_master["ticker"])]
+        target_actions.to_parquet(target.normalized / "corporate_actions.parquet", index=False)
+
+    manifest = {
+        "status": "collected_pending_quality_gate",
+        "source": "cafef_public_history",
+        "source_role": "standalone_exploratory_price_panel",
+        "requested_tickers": requested,
+        "requested_count": len(requested),
+        "collected_count": int(prices["ticker"].nunique()),
+        "resumed_checkpoint_count": int(len(existing_checkpoints)),
+        "newly_collected_count": int(len(completed)),
+        "records": int(len(prices)),
+        "start": str(pd.to_datetime(prices["date"]).min().date()),
+        "end": str(pd.to_datetime(prices["date"]).max().date()),
+        "completed": sorted(completed, key=lambda row: row["ticker"]),
+        "failures": sorted(failures, key=lambda row: row["ticker"]),
+        "price_dataset_sha256": sha256_file(target.normalized / "prices.parquet"),
+        "security_master_sha256": sha256_file(target.normalized / "security_master.parquet"),
+        "adjustment_policy": "unverified",
+        "limitations": [
+            "aggregated_public_reference_source_not_exchange_official",
+            "corporate_action_adjustment_semantics_not_certified",
+            "full_period_sample_selection_is_exploratory",
+            "not_a_full_hose_panel",
+        ],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (target.raw / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return workspace, manifest
+
+
+def _historically_relevant_hose_master(
+    paths: Paths, start: str, end: str
+) -> pd.DataFrame:
+    """Return official HOSE identities active at any time in the requested interval."""
+    master_path = paths.normalized / "security_master.parquet"
+    if not master_path.exists():
+        raise FileNotFoundError(
+            "Official security_master.parquet is required; run crawl-hose-security-master first."
+        )
+    master = pd.read_parquet(master_path).copy()
+    if not master.get("history_method", pd.Series(dtype=str)).astype(str).isin(
+        {"exchange_listing_history", "official_event_history"}
+    ).all():
+        raise ValueError("Security master is not entirely backed by official event history.")
+    master["ticker"] = master["ticker"].astype(str).str.upper().str.strip()
+    master["listing_date"] = pd.to_datetime(master["listing_date"], errors="coerce")
+    master["delisting_date"] = pd.to_datetime(master["delisting_date"], errors="coerce")
+    relevant = master[
+        master["ticker"].str.fullmatch(r"[A-Z0-9]{3}")
+        & master["listing_date"].le(pd.Timestamp(end))
+        & (master["delisting_date"].isna() | master["delisting_date"].ge(pd.Timestamp(start)))
+    ].copy()
+    if relevant.empty:
+        raise RuntimeError("Official HOSE master has no securities in the requested interval.")
+    return relevant.sort_values(["ticker", "listing_date", "security_id"])
+
+
+def crawl_historical_hose_price_gaps(
+    paths: Paths,
+    start: str,
+    end: str,
+    try_vnstock_fallback: bool = True,
+    pause_seconds: float = 0.35,
+) -> dict:
+    """Checkpoint missing historical HOSE symbols without replacing the primary panel.
+
+    The official HOSE event master defines the requested symbols. FinanceDataReader/Yahoo
+    is attempted first and vnstock/KBS is an optional fallback. Collection never promotes
+    a partial subset; use ``merge-historical-price-checkpoints`` afterwards.
+    """
+    import FinanceDataReader as fdr
+
+    paths.ensure()
+    master = _historically_relevant_hose_master(paths, start, end)
+    requested = sorted(master["ticker"].unique())
+    fdr_dir = paths.raw / "fdr_ohlcv"
+    vnstock_dir = paths.raw / "vnstock_ohlcv"
+    cafef_dir = paths.raw / "cafef_ohlcv"
+    fdr_dir.mkdir(parents=True, exist_ok=True)
+    vnstock_dir.mkdir(parents=True, exist_ok=True)
+    cafef_dir.mkdir(parents=True, exist_ok=True)
+    existing = {path.stem.upper() for path in fdr_dir.glob("*.parquet")} | {
+        path.stem.upper() for path in vnstock_dir.glob("*.parquet")
+    } | {path.stem.upper() for path in cafef_dir.glob("*.parquet")}
+    missing = [symbol for symbol in requested if symbol not in existing]
+    completed: list[dict[str, Any]] = []
+    failures: list[dict[str, str]] = []
+    fdr_url = "https://github.com/FinanceData/FinanceDataReader"
+
+    for position, symbol in enumerate(missing, start=1):
+        error_messages: list[str] = []
+        try:
+            raw = fdr.DataReader(f"HOSE:{symbol}", start, end)
+            if raw is None or raw.empty:
+                raise RuntimeError("empty response")
+            normalized = _normalize_fdr_ohlc(raw, symbol, fdr_url)
+            normalized.to_parquet(fdr_dir / f"{symbol}.parquet", index=False)
+            completed.append({"ticker": symbol, "source": "finance_datareader_yahoo_hose", "records": len(normalized)})
+            print(f"[{position:03d}/{len(missing):03d}] {symbol}: FDR {len(normalized):,} rows")
+            continue
+        except Exception as exc:
+            error_messages.append(f"fdr:{type(exc).__name__}")
+
+        if try_vnstock_fallback:
+            try:
+                from vnstock import Market
+
+                # Guest access is documented by the provider as 20 requests/minute.
+                # Pace calls conservatively and preserve every completed symbol.
+                if pause_seconds > 0:
+                    time.sleep(max(pause_seconds, 3.2))
+                raw = Market().equity(symbol=symbol).ohlcv(
+                    start=start, end=end, interval="1D", count=5000, source="kbs"
+                )
+                if raw is None or raw.empty:
+                    raise RuntimeError("empty response")
+                normalized = _normalize_vnstock_ohlc(
+                    raw, symbol, "https://github.com/thinh-vu/vnstock"
+                )
+                normalized.to_parquet(vnstock_dir / f"{symbol}.parquet", index=False)
+                completed.append({"ticker": symbol, "source": "vnstock_kbs", "records": len(normalized)})
+                print(f"[{position:03d}/{len(missing):03d}] {symbol}: vnstock {len(normalized):,} rows")
+                continue
+            except (Exception, SystemExit) as exc:
+                error_messages.append(f"vnstock:{type(exc).__name__}")
+        try:
+            raw = CafeFPublicHistoryAdapter().daily_ohlc(symbol, start, end)
+            if raw.empty:
+                raise RuntimeError("empty response")
+            _archive_raw_frame(paths.raw / "cafef_responses", symbol, raw)
+            normalized = _normalize_cafef_ohlc(raw, symbol)
+            normalized.to_parquet(cafef_dir / f"{symbol}.parquet", index=False)
+            completed.append({"ticker": symbol, "source": "cafef_public_history", "records": len(normalized)})
+            print(f"[{position:03d}/{len(missing):03d}] {symbol}: CafeF {len(normalized):,} rows")
+            continue
+        except Exception as exc:
+            error_messages.append(f"cafef:{type(exc).__name__}")
+        failures.append({"ticker": symbol, "error": ";".join(error_messages)})
+        print(f"[{position:03d}/{len(missing):03d}] {symbol}: unavailable")
+
+    manifest = {
+        "status": "partial" if failures else "success",
+        "role": "checkpoint_only",
+        "requested_historical_tickers": len(requested),
+        "already_checkpointed": len(existing & set(requested)),
+        "newly_collected": len(completed),
+        "completed": completed,
+        "failures": failures,
+        "start": start,
+        "end": end,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "note": "No normalized price panel was promoted by this command.",
+    }
+    (paths.raw / "historical_price_gap_manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return manifest
+
+
+def merge_historical_hose_checkpoints(paths: Paths, start: str, end: str) -> dict:
+    """Merge every available historically relevant checkpoint using official identities."""
+    paths.ensure()
+    master = _historically_relevant_hose_master(paths, start, end)
+    fdr_dir = paths.raw / "fdr_ohlcv"
+    vnstock_dir = paths.raw / "vnstock_ohlcv"
+    cafef_dir = paths.raw / "cafef_ohlcv"
+    frames: list[pd.DataFrame] = []
+    source_for: dict[str, str] = {}
+    missing: list[str] = []
+    identity_ambiguous: list[str] = []
+    for symbol in sorted(master["ticker"].unique()):
+        fdr_path = fdr_dir / f"{symbol}.parquet"
+        vnstock_path = vnstock_dir / f"{symbol}.parquet"
+        cafef_path = cafef_dir / f"{symbol}.parquet"
+        path = fdr_path if fdr_path.exists() else (vnstock_path if vnstock_path.exists() else cafef_path)
+        if not path.exists():
+            missing.append(symbol)
+            continue
+        frame = pd.read_parquet(path).copy()
+        frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+        candidates = master[master["ticker"].eq(symbol)]
+        matched_parts: list[pd.DataFrame] = []
+        for _, security in candidates.iterrows():
+            active = frame[
+                frame["date"].ge(max(pd.Timestamp(start), security["listing_date"]))
+                & frame["date"].le(
+                    min(
+                        pd.Timestamp(end),
+                        security["delisting_date"] if pd.notna(security["delisting_date"]) else pd.Timestamp(end),
+                    )
+                )
+            ].copy()
+            if not active.empty:
+                active["security_id"] = security["security_id"]
+                matched_parts.append(active)
+        if not matched_parts:
+            missing.append(symbol)
+            continue
+        combined = pd.concat(matched_parts, ignore_index=True)
+        if combined.duplicated(["date", "ticker"], keep=False).any():
+            identity_ambiguous.append(symbol)
+            continue
+        frames.append(combined)
+        source_for[symbol] = str(combined["source"].iloc[0])
+    if not frames:
+        raise RuntimeError("No historical checkpoints matched official HOSE intervals.")
+    prices = pd.concat(frames, ignore_index=True)
+    bad_ohlc = (
+        (prices["high"] < prices[["open", "close", "low"]].max(axis=1))
+        | (prices["low"] > prices[["open", "close", "high"]].min(axis=1))
+        | (prices[["open", "high", "low", "close"]] <= 0).any(axis=1)
+    )
+    quarantine = prices.loc[bad_ohlc].copy()
+    quarantine.to_csv(paths.normalized / "ohlc_quarantine_historical.csv", index=False)
+    prices = prices.loc[~bad_ohlc].drop_duplicates(["date", "ticker"]).sort_values(["ticker", "date"])
+    promotion = _stage_and_promote_price_panel(paths, prices, "historical-hose-checkpoints")
+    coverage = prices.groupby("ticker").agg(
+        records=("date", "size"), start=("date", "min"), end=("date", "max")
+    ).reset_index()
+    coverage["source"] = coverage["ticker"].map(source_for)
+    coverage.to_csv(paths.normalized / "historical_hose_coverage.csv", index=False)
+    manifest = {
+        "status": "partial" if missing or identity_ambiguous else "success",
+        "records": len(prices),
+        "historically_relevant_tickers": int(master["ticker"].nunique()),
+        "tickers_promoted": int(prices["ticker"].nunique()),
+        "missing_tickers": sorted(set(missing)),
+        "identity_ambiguous_tickers": identity_ambiguous,
+        "quarantined_ohlc_rows": len(quarantine),
+        "source_counts": pd.Series(source_for).value_counts().to_dict(),
+        "promotion": promotion,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (paths.raw / "historical_hose_merge_manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     return manifest
@@ -1496,6 +1971,244 @@ class FREDAdapter:
         df["available_at"] = pd.to_datetime(df.get("realtime_start", df["date"]))
         df["source"] = "fred_official_api"
         return df[["date", "available_at", "series_id", "value", "source"]]
+
+
+class WorldBankIndicatorsAdapter:
+    """Official, keyless World Bank Indicators API adapter.
+
+    The API exposes the source's latest update date, not a vintage/release timestamp
+    for each historical observation. Output is therefore archived as a current
+    snapshot and is deliberately not promoted to the point-in-time macro feature table.
+    """
+
+    base_url = "https://api.worldbank.org/v2"
+    documentation_url = (
+        "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392"
+    )
+
+    def __init__(self):
+        self.http = JsonHttpClient(RetryPolicy(attempts=4, backoff_seconds=0.5, timeout_seconds=60))
+
+    def indicator(
+        self, country: str, indicator: str, start_year: int, end_year: int
+    ) -> tuple[dict[str, Any], pd.DataFrame]:
+        payload = self.http.request(
+            "GET",
+            f"{self.base_url}/country/{country}/indicator/{indicator}",
+            params={
+                "format": "json", "date": f"{start_year}:{end_year}",
+                "per_page": 20000, "source": 2,
+            },
+        )
+        if not isinstance(payload, list) or len(payload) < 2:
+            raise RuntimeError(f"World Bank returned an invalid payload for {indicator}.")
+        return dict(payload[0] or {}), pd.DataFrame(payload[1] or [])
+
+
+WORLD_BANK_VIETNAM_INDICATORS = {
+    "NY.GDP.MKTP.KD.ZG": "GDP growth (annual %)",
+    "FP.CPI.TOTL.ZG": "Inflation, consumer prices (annual %)",
+    "PA.NUS.FCRF": "Official exchange rate (LCU per USD, period average)",
+    "SL.UEM.TOTL.ZS": "Unemployment, total (% of labor force)",
+    "BX.KLT.DINV.WD.GD.ZS": "Foreign direct investment, net inflows (% of GDP)",
+    "FS.AST.DOMS.GD.ZS": "Domestic credit provided by financial sector (% of GDP)",
+    "CM.MKT.LCAP.GD.ZS": "Market capitalization of listed domestic companies (% of GDP)",
+}
+
+
+def crawl_world_bank_vietnam_snapshot(
+    paths: Paths, start_year: int = 2015, end_year: int = 2025
+) -> dict:
+    if start_year > end_year:
+        raise ValueError("start_year must not exceed end_year")
+    paths.ensure()
+    adapter = WorldBankIndicatorsAdapter()
+    fetched_at = pd.Timestamp.now(tz="UTC")
+    frames: list[pd.DataFrame] = []
+    failures: list[dict[str, str]] = []
+    source_updates: dict[str, Any] = {}
+    for indicator, label in WORLD_BANK_VIETNAM_INDICATORS.items():
+        try:
+            metadata, raw = adapter.indicator("VNM", indicator, start_year, end_year)
+            source_updates[indicator] = metadata.get("lastupdated")
+            if raw.empty:
+                raise RuntimeError("empty response")
+            out = pd.DataFrame({
+                "series_id": indicator,
+                "series_name": label,
+                "country": raw.get("countryiso3code", pd.Series("VNM", index=raw.index)),
+                "observation_date": pd.to_datetime(raw["date"].astype(str) + "-12-31", errors="coerce"),
+                "value": pd.to_numeric(raw["value"], errors="coerce"),
+                "unit": raw.get("unit", pd.Series(pd.NA, index=raw.index)),
+                "source_last_updated": pd.to_datetime(metadata.get("lastupdated"), errors="coerce"),
+                "release_date": pd.NaT,
+                "available_at": fetched_at,
+                "fetched_at": fetched_at,
+                "source": "world_bank_indicators_api_v2",
+                "source_url": adapter.documentation_url,
+                "data_class": "real_snapshot_non_pit",
+                "pit_eligible": False,
+                "pit_exclusion_reason": (
+                    "API supplies the current revised observation and source-level last update, "
+                    "not the observation's historical release/vintage timestamp."
+                ),
+            }).dropna(subset=["observation_date", "value"])
+            if out.empty:
+                raise RuntimeError("no non-null observations in requested period")
+            frames.append(out)
+        except Exception as exc:
+            failures.append({"indicator": indicator, "error": type(exc).__name__})
+    if not frames:
+        raise RuntimeError(f"No World Bank observations collected; failures={failures}")
+    result = pd.concat(frames, ignore_index=True).sort_values(["series_id", "observation_date"])
+    raw_bytes = result.to_csv(index=False).encode("utf-8")
+    result["raw_checksum"] = hashlib.sha256(raw_bytes).hexdigest()
+    staging = create_staging_run(paths, "world-bank-vietnam-snapshot")
+    parquet = staging / "macro_world_bank_snapshot.parquet"
+    result.to_parquet(parquet, index=False)
+    result.to_csv(staging / "macro_world_bank_snapshot.csv", index=False)
+    # This is intentionally a separately named snapshot, never normalized/macro.parquet.
+    promotion = promote_staged_file(paths, parquet, "macro_world_bank_snapshot.parquet")
+    report_csv = paths.reports / "world_bank_vietnam_macro_snapshot.csv"
+    result.to_csv(report_csv, index=False)
+    manifest = {
+        "status": "partial" if failures or result["series_id"].nunique() < len(WORLD_BANK_VIETNAM_INDICATORS) else "success",
+        "records": len(result),
+        "indicators_requested": len(WORLD_BANK_VIETNAM_INDICATORS),
+        "indicators_collected": int(result["series_id"].nunique()),
+        "source_updates": source_updates,
+        "failures": failures,
+        "pit_eligible": False,
+        "role": "descriptive_and_crosscheck_only",
+        "documentation_url": adapter.documentation_url,
+        "promotion": promotion,
+        "fetched_at": fetched_at.isoformat(),
+    }
+    (paths.raw / "world_bank_vietnam_manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return manifest
+
+
+def audit_available_data_sources(paths: Paths) -> dict:
+    """Write a reproducible source/data-gap inventory without exposing credentials."""
+    paths.ensure()
+    files = {
+        "prices": paths.normalized / "prices.parquet",
+        "security_master": paths.normalized / "security_master.parquet",
+        "corporate_actions": paths.normalized / "corporate_actions.parquet",
+        "benchmark": paths.normalized / "benchmark.parquet",
+        "macro_pit": paths.normalized / "macro.parquet",
+        "macro_world_bank_snapshot": paths.normalized / "macro_world_bank_snapshot.parquet",
+        "financial_statements": paths.normalized / "financial_statements.parquet",
+        "foreign_flow": paths.normalized / "foreign_flow.parquet",
+        "index_membership": paths.normalized / "index_membership.parquet",
+    }
+    datasets: dict[str, Any] = {}
+    for name, path in files.items():
+        entry: dict[str, Any] = {"exists": path.exists(), "path": str(path)}
+        if path.exists():
+            table = pd.read_parquet(path)
+            entry.update({"records": len(table), "columns": list(table.columns)})
+            if "ticker" in table:
+                entry["tickers"] = int(table["ticker"].nunique())
+            if "date" in table and not table.empty:
+                dates = pd.to_datetime(table["date"], errors="coerce")
+                entry["date_start"] = str(dates.min().date())
+                entry["date_end"] = str(dates.max().date())
+        datasets[name] = entry
+    sources = [
+        {
+            "source": "HOSE official website/API", "role": "security identity and listing/delisting history",
+            "access": "public", "usable_now": True,
+            "limitation": "historical EOD OHLC and total-return index feeds are licensed services",
+            "url": HOSEOfficialListingAdapter.current_stocks_url,
+        },
+        {
+            "source": "VSDC public notices", "role": "corporate-action evidence",
+            "access": "public notices", "usable_now": False,
+            "limitation": "no verified bulk API contract/parser in this repository; event terms require normalization",
+            "url": "https://www.vsd.vn/",
+        },
+        {
+            "source": "SSI FastConnect", "role": "official broker OHLC and index components",
+            "access": "credentialed API", "usable_now": bool(os.getenv("SSI_CONSUMER_ID") and os.getenv("SSI_CONSUMER_SECRET")),
+            "limitation": "consumer ID/secret absent" if not (os.getenv("SSI_CONSUMER_ID") and os.getenv("SSI_CONSUMER_SECRET")) else None,
+            "url": SSIFastConnectAdapter.base_url,
+        },
+        {
+            "source": "Trading Economics", "role": "OHLC cross-check and macro snapshot",
+            "access": "credentialed API", "usable_now": bool(os.getenv("TRADING_ECONOMICS_API_KEY")),
+            "limitation": "API key absent; market history lacks volume and verified adjustment semantics",
+            "url": TradingEconomicsAdapter.documentation_url,
+        },
+        {
+            "source": "World Bank Indicators API v2", "role": "Vietnam macro snapshot",
+            "access": "public keyless API", "usable_now": True,
+            "limitation": "current revised snapshot has no observation-specific release vintage",
+            "url": WorldBankIndicatorsAdapter.documentation_url,
+        },
+        {
+            "source": "FinanceDataReader/Yahoo", "role": "historical OHLCV checkpoint source",
+            "access": "public adapter", "usable_now": True,
+            "limitation": "not exchange-official; adjustment policy remains uncertified",
+            "url": "https://github.com/FinanceData/FinanceDataReader",
+        },
+        {
+            "source": "vnstock/KBS", "role": "OHLCV fallback and cross-check",
+            "access": "public adapter subject to provider policy", "usable_now": True,
+            "limitation": "not exchange-official; delisted coverage and adjustment semantics are incomplete",
+            "url": "https://github.com/thinh-vu/vnstock",
+        },
+        {
+            "source": "CafeF public history", "role": "last-resort historical OHLCV gap coverage",
+            "access": "public website endpoint", "usable_now": True,
+            "limitation": "aggregated reference data; not exchange-official and adjustment semantics remain uncertified",
+            "url": "https://cafef.vn/du-lieu/lich-su-giao-dich-hose/all-1.chn",
+        },
+        {
+            "source": "IMF SDMX", "role": "international macroeconomic series",
+            "access": "public SDMX services", "usable_now": False,
+            "limitation": "not integrated because a release-vintage contract for the selected Vietnam series has not been verified",
+            "url": "https://sdmxcentral.imf.org/sdmx/v2/",
+        },
+        {
+            "source": "Vietnam National Statistics Office PX-Web", "role": "official domestic macro statistics",
+            "access": "public PX-Web portal", "usable_now": False,
+            "limitation": "no stable dataset/API and historical publication-time contract selected for this study",
+            "url": "https://www.gso.gov.vn/px-web-2/",
+        },
+        {
+            "source": "State Bank of Vietnam", "role": "policy rates, exchange rates and banking statistics",
+            "access": "public web publications", "usable_now": False,
+            "limitation": "no stable bulk API/release-vintage adapter verified in this repository",
+            "url": "https://sbv.gov.vn/",
+        },
+    ]
+    blockers = [
+        "complete OHLCV coverage for every historically relevant HOSE security",
+        "verified corporate-action adjustment contract bound to the exact price dataset hash",
+        "licensed/documented VN-Index total-return benchmark series",
+    ]
+    result = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "datasets": datasets,
+        "sources": sources,
+        "research_blockers": blockers,
+    }
+    (paths.reports / "data_source_audit.json").write_text(
+        json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    lines = ["# Data source and gap audit", "", f"Generated: {result['generated_at']}", "", "## Sources", ""]
+    for item in sources:
+        lines.append(
+            f"- **{item['source']}** — {item['role']}; access: {item['access']}; "
+            f"usable now: {item['usable_now']}. Limitation: {item['limitation'] or 'none recorded'}."
+        )
+    lines.extend(["", "## Remaining research blockers", ""])
+    lines.extend([f"- {item}" for item in blockers])
+    (paths.reports / "DATA_SOURCE_AUDIT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return result
 
 
 def import_point_in_time_table(

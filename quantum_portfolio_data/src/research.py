@@ -1181,6 +1181,7 @@ def _blocked_experiment(
 
 def run_experiment(project_root: Path, config_path: Path) -> Path:
     cfg = load_config(config_path)
+    mode = cfg.get("mode")
     paths = Paths(project_root)
     quality, _ = validate_data(paths)
     universe_cfg = cfg.get("universe", {})
@@ -1264,11 +1265,28 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         blocked = _blocked_experiment(project_root, config_path, cfg, quality, leak,
                                       ["fixture_data_in_research_mode"], message)
         raise ResearchRunBlocked(message, blocked)
-    if cfg.get("mode") == "research" and leak["status"] not in {"pass", "pass_with_limitations"}:
+    if mode == "research" and leak["status"] not in {"pass", "pass_with_limitations"}:
         message = "Historical point-in-time leakage audit blocked the research run."
         blocked = _blocked_experiment(project_root, config_path, cfg, quality, leak,
                                       leak.get("blockers", ["leakage_audit"]), message)
         raise ResearchRunBlocked(message, blocked)
+    if mode == "exploratory" and leak["status"] == "blocked":
+        declared = set(cfg.get("exploratory", {}).get("allowed_leakage_blockers", []))
+        actual = set(leak.get("blockers", []))
+        unexpected = sorted(actual - declared)
+        if unexpected:
+            raise RuntimeError(
+                "Exploratory leakage audit has undeclared blockers: "
+                + ", ".join(unexpected)
+            )
+        leak["audit_status_before_exploratory_acceptance"] = "blocked"
+        leak["accepted_exploratory_limitations"] = sorted(actual)
+        leak["blockers"] = []
+        leak["status"] = "pass_for_exploratory_with_declared_limitations"
+        leak["note"] = (
+            f"{leak.get('note', '')} The original blockers were explicitly accepted only "
+            "for this exploratory run; this does not satisfy the research contract."
+        ).strip()
     if leak["status"] == "blocked":
         raise RuntimeError("Leakage audit blocked; refusing to label results.")
     if cfg["reduction"]["candidate_size"] > 8 and cfg.get("mode") != "research":
@@ -1568,9 +1586,14 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                 f"capacity: aggregate upper bound={per_asset_upper.sum():.6f}."
             )
         master_latest = security_master.drop_duplicates("ticker", keep="last").set_index("ticker")
+        sector_metadata_available = "sector" in master_latest.columns
         selected_sectors = [
             str(master_latest.at[ticker, "sector"])
-            if ticker in master_latest.index and pd.notna(master_latest.at[ticker, "sector"])
+            if (
+                sector_metadata_available
+                and ticker in master_latest.index
+                and pd.notna(master_latest.at[ticker, "sector"])
+            )
             else "UNCLASSIFIED"
             for ticker in chosen
         ]
@@ -1596,6 +1619,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "max_adv_participation": adv_participation,
             "capacity_constraint_applied": bool(capacity_weights),
             "sector_cap": constraints_cfg.get("sector_cap"),
+            "sector_metadata_available": sector_metadata_available,
             "sector_constraint_applied": apply_sector_cap,
             "sector_constraint_reason": (
                 "applied" if apply_sector_cap else "disabled_or_insufficient_sector_metadata"
@@ -2218,11 +2242,12 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     pd.DataFrame(hypothesis_rows).to_csv(out / "hypothesis_results.csv", index=False)
     if not returns.empty:
         pivot = returns.pivot_table(index="date", columns="strategy", values="return", aggfunc="mean")
-        chart_title = (
-            "Walk-forward cumulative wealth — real HOSE data"
-            if cfg.get("mode") == "research"
-            else "Demo cumulative wealth — fixture"
-        )
+        if mode == "research":
+            chart_title = "Walk-forward cumulative wealth - verified research data"
+        elif mode == "exploratory":
+            chart_title = "Walk-forward cumulative wealth - exploratory complete-case HOSE data"
+        else:
+            chart_title = "Demo cumulative wealth - fixture"
         (1 + pivot).cumprod().plot(title=chart_title)
         plt.ylabel("Growth of 1 unit")
         plt.tight_layout()
@@ -2339,7 +2364,10 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     create_report(out, cfg, quality, leak, metrics_df, comparisons, rankings)
-    report_kind = "Research run report" if cfg.get("mode") == "research" else "Demo run report"
+    report_kind = {
+        "research": "Research run report",
+        "exploratory": "Exploratory complete-case run report",
+    }.get(mode, "Demo run report")
     run_report = [
         f"# {report_kind}", "", f"- Experiment: `{experiment_id}`",
         f"- Status: `success`", f"- Label: **{cfg['label']}**",
@@ -2353,7 +2381,10 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     ]
     current = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
     run_report.extend(f"- `{name}`" for name in current)
-    run_report_name = "RUN_REPORT.md" if cfg.get("mode") == "research" else "DEMO_RUN_REPORT.md"
+    run_report_name = {
+        "research": "RUN_REPORT.md",
+        "exploratory": "EXPLORATORY_RUN_REPORT.md",
+    }.get(mode, "DEMO_RUN_REPORT.md")
     (out / run_report_name).write_text("\n".join(run_report) + "\n", encoding="utf-8")
     manifest["artifacts"] = sorted(
         p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()
@@ -2385,18 +2416,21 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
     statistics = pd.read_csv(out / "statistical_tests.csv") if (out / "statistical_tests.csv").exists() else pd.DataFrame()
     regimes = pd.read_csv(out / "regime_metrics.csv") if (out / "regime_metrics.csv").exists() else pd.DataFrame()
     is_research = cfg.get("mode") == "research"
+    is_exploratory = cfg.get("mode") == "exploratory"
     manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     h1_test = (statistics[statistics["hypothesis"] == "H1"]
                if "hypothesis" in statistics else pd.DataFrame())
     h5_tests = (statistics[statistics["hypothesis"] == "H5"]
                 if "hypothesis" in statistics else pd.DataFrame())
-    interpretation_prefix = "research" if is_research else "demo-only"
+    interpretation_prefix = (
+        "research" if is_research else ("exploratory-only" if is_exploratory else "demo-only")
+    )
     hypotheses = [
         ("H1", interpretation_prefix,
          f"Mean XGBoost walk-forward Rank IC={ic:.4f}; paired XGBoost–EWMA test rows={len(h1_test)}."),
         ("H2", interpretation_prefix,
          "AUR diagnostics report signal, liquidity, risk, correlation, selected M and candidate turnover; causal superiority is not inferred."),
-        ("H3", "implementation-supported" if is_research else "demo-only",
+        ("H3", "implementation-supported" if is_research else interpretation_prefix,
          "Fixed-weight XY simulation preserves cardinality by construction; penalty feasibility is measured from samples."),
         ("H4", interpretation_prefix,
          "Primary-solution and best-observed gaps are separated against the exact small-instance oracle."),
@@ -2405,12 +2439,26 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
         ("H6", interpretation_prefix,
          "Sensitivity reruns solver/accounting on the declared grid and representative folds; inference is conditional on that grid."),
     ]
-    title = "AI–Quantum Portfolio Research Report" if is_research else "AI–Quantum Portfolio Demo Report"
-    scope = (
-        "This run evaluates the complete walk-forward pipeline on the normalized real-market price panel."
-        if is_research
-        else "This run verifies the software path end-to-end. It is not evidence for the 2015–2025 HOSE study."
-    )
+    if is_research:
+        title = "AI-Quantum Portfolio Research Report"
+        scope = (
+            "This run evaluates the complete walk-forward pipeline on a normalized "
+            "real-market panel that satisfies the declared research contracts."
+        )
+    elif is_exploratory:
+        title = "AI-Quantum Portfolio Exploratory Complete-Case Report"
+        scope = (
+            "This run uses real HOSE price observations retained by an explicit "
+            "complete-case rule. It verifies the empirical pipeline on usable data, "
+            "but it is not confirmatory evidence for the full-HOSE study because the "
+            "adjustment contract and full point-in-time coverage are not established."
+        )
+    else:
+        title = "AI-Quantum Portfolio Demo Report"
+        scope = (
+            "This run verifies the software path end-to-end. It is not evidence for "
+            "the 2015-2025 HOSE study."
+        )
     lines = [
         f"# {title}", "", f"> **{label}**", "",
         "## Scope", "",
@@ -2464,6 +2512,19 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
             "- Statistical results are conditional on the selected period, universe, costs and model specification; they are not investment advice or proof of quantum advantage.",
         ]
         reproduce = "python -m src.cli run-experiment --config configs/hose300_real.yaml"
+    elif is_exploratory:
+        limitations = [
+            "- Securities are retained using full-period availability, which can create coverage or survivorship selection bias.",
+            "- Price completeness does not certify corporate-action adjustment; abnormal economic returns may remain even after row-level quality checks.",
+            "- No verified total-return benchmark is used, and optional point-in-time fundamentals, macroeconomic variables and foreign flow are excluded.",
+            "- Results are exploratory and must not be described as confirmatory evidence for all HOSE securities.",
+            "- The XY-QAOA implementation is an ideal fixed-Hamming-weight statevector simulator, not quantum hardware.",
+            "- Statistical results are conditional on the retained sample, period, costs and tested parameter grid.",
+        ]
+        reproduce = (
+            "python -m src.cli run-complete-case --config "
+            "configs/hose300_complete_case_exploratory.yaml"
+        )
     else:
         limitations = [
             "- Data are deterministic fixtures, explicitly not real HOSE observations.",
