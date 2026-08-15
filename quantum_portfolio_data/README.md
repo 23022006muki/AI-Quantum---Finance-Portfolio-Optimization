@@ -67,6 +67,19 @@ Kết quả được gắn nhãn **EXPLORATORY ONLY**. Việc lọc theo độ p
 coverage/survivorship selection bias và không thay thế hợp đồng điều chỉnh corporate
 actions; vì vậy kết quả này không được trình bày như kiểm định confirmatory toàn HOSE.
 
+Chạy **Data B**, phiên bản tối ưu hóa trên panel Data A bất biến, với 44 fold
+liên tục, blend XGBoost–technical chọn bằng validation, AUR có kiểm tra khả năng
+mua lô, best-observed feasible XY-QAOA và market-regime exposure:
+
+```powershell
+python -m src.cli run-data-b
+```
+
+Run chuẩn `20260815T184821-a800b2584d` đạt lợi nhuận ngoài mẫu sau chi phí
+16,13%, nhưng chỉ H3 được hỗ trợ thống kê và kết quả vẫn mang tính
+khám phá. Xem `outputs/Data B/DATA_B_SYSTEM_AND_RESULTS_VI.md` để đọc phương
+pháp, kết quả, rổ cuối và các hạn chế bắt buộc.
+
 Tạo và thẩm định một panel **CafeF-only** hoàn toàn riêng; hệ thống chỉ train/backtest
 khi còn tối thiểu 8 mã sau quality gate:
 

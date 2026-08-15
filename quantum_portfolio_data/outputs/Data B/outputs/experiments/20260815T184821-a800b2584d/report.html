@@ -1,0 +1,270 @@
+<html><meta charset='utf-8'><body># AI-Quantum Portfolio Exploratory Complete-Case Report<br>
+<br>
+&gt; **DATA B - OPTIMIZED EXPLORATORY HOSE PIPELINE; NOT CONFIRMATORY RESEARCH**<br>
+<br>
+| Report field | Value |<br>
+|---|---|<br>
+| Experiment ID | `20260815T184821-a800b2584d` |<br>
+| Dataset hash | `6e046b509fef366681866328d5bd99ec63541c2de8597f0e7bebc101813baa05` |<br>
+| Adjustment version | `unknown` |<br>
+| Config hash | `a800b2584d` |<br>
+| Git commit | `65c266d452d42b7e115a01f1fe2bfeacf69d5cf5` |<br>
+| Created at | `2026-08-15T12:48:08.541607+00:00` |<br>
+| Mode | `exploratory` |<br>
+| Research/exploratory label | `DATA B - OPTIMIZED EXPLORATORY HOSE PIPELINE; NOT CONFIRMATORY RESEARCH` |<br>
+| Folds | `44/44` |<br>
+| OOS start/end | `2022-05-02` / `2025-12-30` |<br>
+| Audit status | `pass_for_exploratory_with_declared_limitations` |<br>
+<br>
+## Scope<br>
+<br>
+This run uses real HOSE price observations retained by an explicit complete-case rule. It verifies the empirical pipeline on usable data, but it is not confirmatory evidence for the full-HOSE study because the adjustment contract and full point-in-time coverage are not established.<br>
+<br>
+## Data validation<br>
+<br>
+- Quality: `pass`<br>
+- Leakage audit: `pass_for_exploratory_with_declared_limitations`<br>
+- Records: 565471<br>
+- Tickers: 394<br>
+- Requested range: 2020-01-01 to 2025-12-31<br>
+- Actual data range: 2020-01-02 to 2025-12-31<br>
+- Actual OOS range: 2022-05-02 to 2025-12-30<br>
+- Folds completed/requested: 44/44<br>
+<br>
+## Predictive ranking<br>
+<br>
+- Mean fold rank IC: 0.059919<br>
+<br>
+## Solver comparison<br>
+<br>
+| method | energy_mean | feasibility_rate | optimality_gap_mean | runtime_seconds | runs |<br>
+| --- | --- | --- | --- | --- | --- |<br>
+| exact | -0.00561048 | 1 | 0 | 0 | 44 |<br>
+| penalty_qaoa_ideal_statevector | 0.000997195 | 0.569491 | 0.325964 | 0.290149 | 132 |<br>
+| penalty_stochastic_baseline | -0.00561048 | 0.274414 | 0 | 0.0047689 | 44 |<br>
+| simulated_annealing | -0.00561048 | 1 | 0 | 0.0255701 | 132 |<br>
+| xy_qaoa_dicke_ideal_statevector | -0.00511535 | 1 | 0.0340001 | 0.152628 | 132 |<br>
+<br>
+## Portfolio metrics<br>
+<br>
+| cumulative_return | annualized_return | annualized_volatility | sharpe | sortino | max_drawdown | calmar | positive_day_ratio | observations | strategy | sharpe_ci_low | sharpe_ci_high |<br>
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |<br>
+| -0.0893337 | -0.024723 | 0.23161 | -0.11936 | -0.270017 | -0.545146 | -0.0453513 | 0.483015 | 942 | adaptive_exact | -1.16352 | 1.07646 |<br>
+| -0.36639 | -0.114917 | 0.287089 | -0.383183 | -0.566244 | -0.538519 | -0.213394 | 0.494692 | 942 | adaptive_penalty_qaoa | -1.54264 | 0.794932 |<br>
+| -0.0893337 | -0.024723 | 0.23161 | -0.11936 | -0.270017 | -0.545146 | -0.0453513 | 0.483015 | 942 | adaptive_simulated_annealing | -1.16352 | 1.07646 |<br>
+| -0.20107 | -0.0582849 | 0.24739 | -0.237799 | -0.403623 | -0.520673 | -0.111941 | 0.485138 | 942 | adaptive_xy_qaoa | -1.36044 | 0.918653 |<br>
+| -0.225944 | -0.0662195 | 0.241261 | -0.284678 | -0.432002 | -0.526554 | -0.12576 | 0.509554 | 942 | equal_weight_candidates | -1.38871 | 0.993428 |<br>
+| 0.069473 | 0.0181304 | 0.193023 | 0.0372341 | -0.0624613 | -0.479865 | 0.0377823 | 0.585987 | 942 | equal_weight_universe | -1.24327 | 1.47692 |<br>
+| -0.359833 | -0.112475 | 0.391716 | -0.183735 | -0.531817 | -0.64888 | -0.173338 | 0.483015 | 942 | ewma_topk_exact | -1.5626 | 1.04316 |<br>
+| 0.16128 | 0.0408106 | 0.0754218 | 0.176059 | 0.175271 | -0.140455 | 0.29056 | 0.487261 | 942 | full_pipeline_xy_qaoa | -1.11108 | 1.31775 |<br>
+| 0.193502 | 0.048459 | 0.340864 | 0.223773 | 0.0662053 | -0.568474 | 0.085244 | 0.5 | 942 | liquidity_topk_exact | -0.987946 | 1.34682 |<br>
+| -0.312399 | -0.0953411 | 0.411443 | -0.109187 | -0.447568 | -0.674998 | -0.141247 | 0.484076 | 942 | markowitz_mean_variance | -1.46086 | 1.0792 |<br>
+| 0.281632 | 0.0686326 | 0.109843 | 0.390328 | 0.393243 | -0.147187 | 0.466295 | 0.545648 | 942 | minimum_variance | -0.654962 | 1.47699 |<br>
+| -0.300276 | -0.0911015 | 0.299446 | -0.267331 | -0.505259 | -0.5648 | -0.161299 | 0.46603 | 942 | xgboost_penalty_qaoa | -1.61571 | 0.867861 |<br>
+| -0.426834 | -0.138339 | 0.262214 | -0.548406 | -0.74447 | -0.563851 | -0.245347 | 0.474522 | 942 | xgboost_topk_exact | -1.62298 | 0.472281 |<br>
+| -0.445396 | -0.145895 | 0.265828 | -0.570462 | -0.77015 | -0.556123 | -0.262343 | 0.474522 | 942 | xgboost_xy_qaoa | -1.62817 | 0.462842 |<br>
+<br>
+## Ablation study<br>
+<br>
+| configuration | selector | solver | objective_mean | optimality_gap_mean | feasibility_rate | folds |<br>
+| --- | --- | --- | --- | --- | --- | --- |<br>
+| adaptive_exact | adaptive | exact | -0.00561048 | 0 | 1 | 44 |<br>
+| adaptive_penalty_qaoa | adaptive | penalty_qaoa_ideal_statevector | 0.0286418 | 3.52836 | 0.320823 | 44 |<br>
+| adaptive_simulated_annealing | adaptive | simulated_annealing | -0.00561048 | 0 | 1 | 44 |<br>
+| adaptive_xy_qaoa | adaptive | xy_qaoa_dicke_ideal_statevector | -0.000742873 | 0.784865 | 1 | 44 |<br>
+| ewma_topk_exact | ewma | exact | -0.264331 | 0 | 1 | 44 |<br>
+| liquidity_topk_exact | liquidity | exact | -0.027811 | 0 | 1 | 44 |<br>
+| xgboost_penalty_qaoa | xgboost | penalty_qaoa_ideal_statevector | 0.05864 | 1.77108 | 0.319536 | 44 |<br>
+| xgboost_topk_exact | xgboost | exact | 0.0131326 | 0 | 1 | 44 |<br>
+| xgboost_xy_qaoa | xgboost | xy_qaoa_dicke_ideal_statevector | 0.0198812 | 0.642928 | 1 | 44 |<br>
+<br>
+## Robustness and sensitivity<br>
+<br>
+| depth_p | shots | cardinality | uniform_probability_noise_proxy | transaction_cost_bps | optimality_gap | feasibility_rate | runtime_seconds |<br>
+| --- | --- | --- | --- | --- | --- | --- | --- |<br>
+| 1 | 256 | 3 | 0 | 0 | 0.0428301 | 0.930664 | 0.0334469 |<br>
+| 1 | 256 | 3 | 0 | 10 | 0.0428301 | 0.930664 | 0.0334469 |<br>
+| 1 | 256 | 3 | 0 | 25 | 0.0428301 | 0.930664 | 0.0334469 |<br>
+| 1 | 256 | 4 | 0 | 0 | 0.0702569 | 0.930664 | 0.0456733 |<br>
+| 1 | 256 | 4 | 0 | 10 | 0.0702569 | 0.930664 | 0.0456733 |<br>
+| 1 | 256 | 4 | 0 | 25 | 0.0702569 | 0.930664 | 0.0456733 |<br>
+| 1 | 1024 | 3 | 0 | 0 | 0.0450418 | 0.927327 | 0.059961 |<br>
+| 1 | 1024 | 3 | 0 | 10 | 0.0450418 | 0.927327 | 0.059961 |<br>
+| 1 | 1024 | 3 | 0 | 25 | 0.0450418 | 0.927327 | 0.059961 |<br>
+| 1 | 1024 | 4 | 0 | 0 | 0.0212684 | 0.92806 | 0.0680998 |<br>
+| 1 | 1024 | 4 | 0 | 10 | 0.0212684 | 0.92806 | 0.0680998 |<br>
+| 1 | 1024 | 4 | 0 | 25 | 0.0212684 | 0.92806 | 0.0680998 |<br>
+| 1 | 2048 | 3 | 0 | 0 | 0.06114 | 0.925252 | 0.0939662 |<br>
+| 1 | 2048 | 3 | 0 | 10 | 0.06114 | 0.925252 | 0.0939662 |<br>
+| 1 | 2048 | 3 | 0 | 25 | 0.06114 | 0.925252 | 0.0939662 |<br>
+| 1 | 2048 | 4 | 0 | 0 | 0.0412143 | 0.927368 | 0.0948983 |<br>
+| 1 | 2048 | 4 | 0 | 10 | 0.0412143 | 0.927368 | 0.0948983 |<br>
+| 1 | 2048 | 4 | 0 | 25 | 0.0412143 | 0.927368 | 0.0948983 |<br>
+| 2 | 256 | 3 | 0 | 0 | 0.259239 | 0.930339 | 0.0371472 |<br>
+| 2 | 256 | 3 | 0 | 10 | 0.259239 | 0.930339 | 0.0371472 |<br>
+| 2 | 256 | 3 | 0 | 25 | 0.259239 | 0.930339 | 0.0371472 |<br>
+| 2 | 256 | 4 | 0 | 0 | 0.13151 | 0.930013 | 0.0513007 |<br>
+| 2 | 256 | 4 | 0 | 10 | 0.13151 | 0.930013 | 0.0513007 |<br>
+| 2 | 256 | 4 | 0 | 25 | 0.13151 | 0.930013 | 0.0513007 |<br>
+| 2 | 1024 | 3 | 0 | 0 | 0.18401 | 0.927816 | 0.050102 |<br>
+| 2 | 1024 | 3 | 0 | 10 | 0.18401 | 0.927816 | 0.050102 |<br>
+| 2 | 1024 | 3 | 0 | 25 | 0.18401 | 0.927816 | 0.050102 |<br>
+| 2 | 1024 | 4 | 0 | 0 | 0.0883203 | 0.928874 | 0.0634412 |<br>
+| 2 | 1024 | 4 | 0 | 10 | 0.0713741 | 0.964437 | 0.0621646 |<br>
+| 2 | 1024 | 4 | 0 | 25 | 0.0883203 | 0.928874 | 0.0634412 |<br>
+| 2 | 2048 | 3 | 0 | 0 | 0.190912 | 0.925659 | 0.0620724 |<br>
+| 2 | 2048 | 3 | 0 | 10 | 0.190912 | 0.925659 | 0.0620724 |<br>
+| 2 | 2048 | 3 | 0 | 25 | 0.190912 | 0.925659 | 0.0620724 |<br>
+| 2 | 2048 | 4 | 0 | 0 | 0.0858528 | 0.927246 | 0.0853234 |<br>
+| 2 | 2048 | 4 | 0 | 10 | 0.0858528 | 0.927246 | 0.0853234 |<br>
+| 2 | 2048 | 4 | 0 | 25 | 0.0858528 | 0.927246 | 0.0853234 |<br>
+| 3 | 256 | 3 | 0 | 0 | 0.0833488 | 0.93099 | 0.0243923 |<br>
+| 3 | 256 | 3 | 0 | 10 | 0.0833488 | 0.93099 | 0.0243923 |<br>
+| 3 | 256 | 3 | 0 | 25 | 0.0833488 | 0.93099 | 0.0243923 |<br>
+| 3 | 256 | 4 | 0 | 0 | 0.0519626 | 0.930339 | 0.0368407 |<br>
+| 3 | 256 | 4 | 0 | 10 | 0.0519626 | 0.930339 | 0.0368407 |<br>
+| 3 | 256 | 4 | 0 | 25 | 0.0519626 | 0.930339 | 0.0368407 |<br>
+| 3 | 1024 | 3 | 0 | 0 | 0.0828589 | 0.92863 | 0.0432039 |<br>
+| 3 | 1024 | 3 | 0 | 10 | 0.0828589 | 0.92863 | 0.0432039 |<br>
+| 3 | 1024 | 3 | 0 | 25 | 0.0828589 | 0.92863 | 0.0432039 |<br>
+| 3 | 1024 | 4 | 0 | 0 | 0.0591178 | 0.928548 | 0.0745174 |<br>
+| 3 | 1024 | 4 | 0 | 10 | 0.0591178 | 0.928548 | 0.0745174 |<br>
+| 3 | 1024 | 4 | 0 | 25 | 0.0591178 | 0.928548 | 0.0745174 |<br>
+| 3 | 2048 | 3 | 0 | 0 | 0.0783721 | 0.925822 | 0.0741377 |<br>
+| 3 | 2048 | 3 | 0 | 10 | 0.0783721 | 0.925822 | 0.0741377 |<br>
+| 3 | 2048 | 3 | 0 | 25 | 0.0783721 | 0.925822 | 0.0741377 |<br>
+| 3 | 2048 | 4 | 0 | 0 | 0.0591178 | 0.927287 | 0.0994211 |<br>
+| 3 | 2048 | 4 | 0 | 10 | 0.0591178 | 0.927287 | 0.0994211 |<br>
+| 3 | 2048 | 4 | 0 | 25 | 0.0591178 | 0.927287 | 0.0994211 |<br>
+<br>
+## Statistical comparison<br>
+<br>
+| mean_difference | ci_low | ci_high | p_value | effect_size_daily | bootstrap_centered_under_null | test | hypothesis | p_value_holm | conclusion | direction |<br>
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |<br>
+| 2.41732e-05 | -0.000844787 | 0.000976512 | 0.942 | 2.41732e-05 | True | full_pipeline_xy_qaoa_vs_equal_weight_universe | H5 | 1 | not_significant | nan |<br>
+| 0.000230963 | -0.00159321 | 0.00229056 | 0.818 | 0.000230963 | True | full_pipeline_xy_qaoa_vs_markowitz_mean_variance | H5 | 1 | not_significant | nan |<br>
+| -0.000117445 | -0.000544386 | 0.000319479 | 0.568 | -0.000117445 | True | full_pipeline_xy_qaoa_vs_minimum_variance | H5 | 1 | not_significant | nan |<br>
+| -0.00024999 | -0.00169089 | 0.00123801 | 0.728 | -0.00024999 | True | full_pipeline_xy_qaoa_vs_liquidity_topk_exact | H5 | 1 | not_significant | nan |<br>
+| 0.000338296 | -0.00152282 | 0.0023099 | 0.728 | 0.000338296 | True | full_pipeline_xy_qaoa_vs_ewma_topk_exact | H5 | 1 | not_significant | nan |<br>
+| 0.000162395 | -0.000529331 | 0.00101338 | 0.68 | 0.000162395 | True | full_pipeline_xy_qaoa_vs_adaptive_exact | H5 | 1 | not_significant | nan |<br>
+| 0.000162395 | -0.000529331 | 0.00101338 | 0.68 | 0.000162395 | True | full_pipeline_xy_qaoa_vs_adaptive_simulated_annealing | H5 | 1 | not_significant | nan |<br>
+| 0.000489232 | -0.000643955 | 0.00172272 | 0.388 | 0.000489232 | True | full_pipeline_xy_qaoa_vs_adaptive_penalty_qaoa | H5 | 1 | not_significant | nan |<br>
+| 0.0626162 | -0.00373288 | 0.145995 | 0.118 | 0.0626162 | True | xgboost_rank_ic_vs_ewma_rank_ic | H1 | 1 | not_significant | nan |<br>
+| -0.00217857 | -0.0176267 | 0.0117522 | 0.785 | -0.00217857 | True | adaptive_universe_forward_return_vs_fixed_topm | H2 | 1 | not_significant | higher_is_better |<br>
+| -0.0313007 | -0.0935474 | 0.0421307 | 0.369 | -0.0313007 | True | adaptive_universe_diversification_vs_fixed_topm | H2 | 1 | not_significant | higher_is_better_after_reversal |<br>
+| 0.430509 | 0.41599 | 0.446268 | 0 | 0.430509 | True | xy_feasibility_vs_penalty_qaoa | H3 | 0 | significant | nan |<br>
+| 0.291963 | 0.115826 | 0.552542 | 0.025 | 0.291963 | True | xy_optimality_gap_vs_penalty_qaoa | H4 | 0.3 | not_significant | higher_is_better_after_reversal |<br>
+<br>
+## Market-regime description<br>
+<br>
+| cumulative_return | annualized_return | annualized_volatility | sharpe | sortino | max_drawdown | calmar | positive_day_ratio | observations | strategy | regime |<br>
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |<br>
+| -0.437249 | -0.597955 | 0.335833 | -2.62799 | -2.35663 | -0.456122 | -1.31095 | 0.433962 | 159 | adaptive_exact | bear_high_vol |<br>
+| -0.0299984 | -0.422032 | 0.149013 | -3.80485 | -8.79453 | -0.0536135 | -7.87174 | 0.428571 | 14 | adaptive_exact | bear_low_vol |<br>
+| -0.10774 | -0.654919 | 0.269918 | -3.91133 | -2.82398 | -0.13065 | -5.01277 | 0.444444 | 27 | adaptive_exact | bull_high_vol |<br>
+| 1.09592 | 0.889753 | 0.21274 | 2.96221 | 5.28 | -0.0982966 | 9.05172 | 0.532423 | 293 | adaptive_exact | bull_low_vol |<br>
+| 0.129553 | 0.280914 | 0.199849 | 1.18995 | 1.41677 | -0.066774 | 4.20694 | 0.467742 | 124 | adaptive_exact | sideway_high_vol |<br>
+| -0.210237 | -0.167239 | 0.185783 | -1.05006 | -1.13842 | -0.280264 | -0.596718 | 0.473846 | 325 | adaptive_exact | sideway_low_vol |<br>
+| -0.226973 | -0.335034 | 0.381874 | -0.953189 | -1.17143 | -0.316144 | -1.05975 | 0.496855 | 159 | adaptive_penalty_qaoa | bear_high_vol |<br>
+| -0.00640723 | -0.109259 | 0.279834 | -0.391275 | -1.00598 | -0.0543814 | -2.00912 | 0.357143 | 14 | adaptive_penalty_qaoa | bear_low_vol |<br>
+| -0.169988 | -0.824294 | 0.321504 | -5.32611 | -3.46029 | -0.193097 | -4.26881 | 0.37037 | 27 | adaptive_penalty_qaoa | bull_high_vol |<br>
+| 0.391542 | 0.328668 | 0.256212 | 1.12354 | 1.23468 | -0.28507 | 1.15294 | 0.542662 | 293 | adaptive_penalty_qaoa | bull_low_vol |<br>
+| 0.241845 | 0.552991 | 0.253663 | 1.74617 | 2.14898 | -0.11066 | 4.99721 | 0.540323 | 124 | adaptive_penalty_qaoa | sideway_high_vol |<br>
+| -0.424864 | -0.348777 | 0.26616 | -1.58671 | -1.59558 | -0.434041 | -0.803557 | 0.449231 | 325 | adaptive_penalty_qaoa | sideway_low_vol |<br>
+| -0.437249 | -0.597955 | 0.335833 | -2.62799 | -2.35663 | -0.456122 | -1.31095 | 0.433962 | 159 | adaptive_simulated_annealing | bear_high_vol |<br>
+| -0.0299984 | -0.422032 | 0.149013 | -3.80485 | -8.79453 | -0.0536135 | -7.87174 | 0.428571 | 14 | adaptive_simulated_annealing | bear_low_vol |<br>
+| -0.10774 | -0.654919 | 0.269918 | -3.91133 | -2.82398 | -0.13065 | -5.01277 | 0.444444 | 27 | adaptive_simulated_annealing | bull_high_vol |<br>
+| 1.09592 | 0.889753 | 0.21274 | 2.96221 | 5.28 | -0.0982966 | 9.05172 | 0.532423 | 293 | adaptive_simulated_annealing | bull_low_vol |<br>
+| 0.129553 | 0.280914 | 0.199849 | 1.18995 | 1.41677 | -0.066774 | 4.20694 | 0.467742 | 124 | adaptive_simulated_annealing | sideway_high_vol |<br>
+| -0.210237 | -0.167239 | 0.185783 | -1.05006 | -1.13842 | -0.280264 | -0.596718 | 0.473846 | 325 | adaptive_simulated_annealing | sideway_low_vol |<br>
+| -0.413111 | -0.570283 | 0.334697 | -2.4398 | -2.24166 | -0.439181 | -1.29851 | 0.471698 | 159 | adaptive_xy_qaoa | bear_high_vol |<br>
+| -0.0281078 | -0.401415 | 0.151438 | -3.5107 | -7.91925 | -0.0518275 | -7.74521 | 0.428571 | 14 | adaptive_xy_qaoa | bear_low_vol |<br>
+| -0.11878 | -0.692778 | 0.258789 | -4.53757 | -3.14539 | -0.130463 | -5.31016 | 0.37037 | 27 | adaptive_xy_qaoa | bull_high_vol |<br>
+| 0.729791 | 0.602104 | 0.246789 | 1.91502 | 2.71593 | -0.142398 | 4.22831 | 0.532423 | 293 | adaptive_xy_qaoa | bull_low_vol |<br>
+| 0.161972 | 0.356732 | 0.20589 | 1.44057 | 1.88325 | -0.0627796 | 5.68229 | 0.435484 | 124 | adaptive_xy_qaoa | sideway_high_vol |<br>
+| -0.209209 | -0.166398 | 0.207371 | -0.915215 | -1.00689 | -0.304388 | -0.546665 | 0.48 | 325 | adaptive_xy_qaoa | sideway_low_vol |<br>
+| -0.387691 | -0.540412 | 0.330623 | -2.27077 | -2.04458 | -0.382674 | -1.4122 | 0.503145 | 159 | equal_weight_candidates | bear_high_vol |<br>
+| -0.0142886 | -0.228215 | 0.178148 | -1.53765 | -3.72783 | -0.0453911 | -5.02775 | 0.285714 | 14 | equal_weight_candidates | bear_low_vol |<br>
+| -0.107797 | -0.655127 | 0.240978 | -4.41405 | -3.3532 | -0.125244 | -5.2308 | 0.407407 | 27 | equal_weight_candidates | bull_high_vol |<br>
+| 1.07046 | 0.869986 | 0.214153 | 2.89595 | 4.26711 | -0.0892469 | 9.74809 | 0.580205 | 293 | equal_weight_candidates | bull_low_vol |<br>
+| 0.106035 | 0.227297 | 0.223292 | 0.896159 | 0.902528 | -0.0955809 | 2.37806 | 0.524194 | 124 | equal_weight_candidates | sideway_high_vol |<br>
+| -0.372299 | -0.303083 | 0.214812 | -1.70877 | -1.64651 | -0.388919 | -0.779297 | 0.461538 | 325 | equal_weight_candidates | sideway_low_vol |<br>
+| -0.360248 | -0.50734 | 0.323976 | -2.11077 | -2.0951 | -0.414236 | -1.22476 | 0.528302 | 159 | equal_weight_universe | bear_high_vol |<br>
+| -0.0485629 | -0.59183 | 0.176156 | -5.16405 | -5.61444 | -0.0733633 | -8.06711 | 0.357143 | 14 | equal_weight_universe | bear_low_vol |<br>
+| 0.0207336 | 0.211107 | 0.197303 | 0.916719 | 1.13279 | -0.0758739 | 2.78234 | 0.666667 | 27 | equal_weight_universe | bull_high_vol |<br>
+| 0.670109 | 0.554446 | 0.133525 | 3.15207 | 4.11959 | -0.0641205 | 8.64694 | 0.651877 | 293 | equal_weight_universe | bull_low_vol |<br>
+| 0.222851 | 0.5051 | 0.17574 | 2.24676 | 3.15682 | -0.0635634 | 7.9464 | 0.620968 | 124 | equal_weight_universe | sideway_high_vol |<br>
+| -0.157156 | -0.124159 | 0.15112 | -0.996186 | -0.954898 | -0.194079 | -0.639733 | 0.544615 | 325 | equal_weight_universe | sideway_low_vol |<br>
+| -0.420087 | -0.578349 | 0.427736 | -1.86974 | -2.05376 | -0.427978 | -1.35135 | 0.528302 | 159 | ewma_topk_exact | bear_high_vol |<br>
+| -0.104539 | -0.862962 | 0.425547 | -4.522 | -3.13326 | -0.114634 | -7.52801 | 0.428571 | 14 | ewma_topk_exact | bear_low_vol |<br>
+| 0.117051 | 1.80983 | 0.414312 | 2.62593 | 6.84584 | -0.0882441 | 20.5093 | 0.481481 | 27 | ewma_topk_exact | bull_high_vol |<br>
+| 0.293649 | 0.247871 | 0.374017 | 0.699784 | 0.852642 | -0.348884 | 0.710469 | 0.494881 | 293 | ewma_topk_exact | bull_low_vol |<br>
+| 0.666375 | 1.82293 | 0.331629 | 3.21012 | 8.14072 | -0.127028 | 14.3506 | 0.524194 | 124 | ewma_topk_exact | sideway_high_vol |<br>
+| -0.488057 | -0.404975 | 0.403128 | -1.15836 | -1.63838 | -0.548135 | -0.738824 | 0.436923 | 325 | ewma_topk_exact | sideway_low_vol |<br>
+| -0.106107 | -0.162871 | 0.0654446 | -3.13459 | -3.58178 | -0.105653 | -1.54157 | 0.446541 | 159 | full_pipeline_xy_qaoa | bear_high_vol |<br>
+| -0.00687253 | -0.116737 | 0.0267879 | -5.72385 | -22.6073 | -0.0111388 | -10.4802 | 0.428571 | 14 | full_pipeline_xy_qaoa | bear_low_vol |<br>
+| -0.0212733 | -0.181836 | 0.0677792 | -3.36322 | -3.68547 | -0.0303151 | -5.99821 | 0.481481 | 27 | full_pipeline_xy_qaoa | bull_high_vol |<br>
+| 0.393924 | 0.330625 | 0.112675 | 2.33022 | 3.27593 | -0.0672218 | 4.91842 | 0.532423 | 293 | full_pipeline_xy_qaoa | bull_low_vol |<br>
+| 0.0226689 | 0.0466083 | 0.042014 | 0.40164 | 0.39083 | -0.0142942 | 3.26064 | 0.5 | 124 | full_pipeline_xy_qaoa | sideway_high_vol |<br>
+| -0.0624147 | -0.0487436 | 0.0393626 | -2.0007 | -2.12106 | -0.0753608 | -0.646804 | 0.464615 | 325 | full_pipeline_xy_qaoa | sideway_low_vol |<br>
+| -0.41096 | -0.567784 | 0.495264 | -1.50332 | -1.87319 | -0.526044 | -1.07935 | 0.471698 | 159 | liquidity_topk_exact | bear_high_vol |<br>
+| -0.0435687 | -0.551495 | 0.187326 | -4.34443 | -4.89016 | -0.065743 | -8.38865 | 0.428571 | 14 | liquidity_topk_exact | bear_low_vol |<br>
+| -0.0668428 | -0.475702 | 0.338252 | -1.83013 | -1.98057 | -0.115348 | -4.12404 | 0.481481 | 27 | liquidity_topk_exact | bull_high_vol |<br>
+| 1.22081 | 0.9862 | 0.306415 | 2.30032 | 3.56202 | -0.148905 | 6.62301 | 0.542662 | 293 | liquidity_topk_exact | bull_low_vol |<br>
+| 0.384899 | 0.938197 | 0.296318 | 2.28439 | 3.41815 | -0.106055 | 8.8463 | 0.524194 | 124 | liquidity_topk_exact | sideway_high_vol |<br>
+| -0.261856 | -0.20976 | 0.292175 | -0.75947 | -0.979149 | -0.388644 | -0.539723 | 0.470769 | 325 | liquidity_topk_exact | sideway_low_vol |<br>
+| -0.511378 | -0.678596 | 0.447419 | -2.37253 | -2.38098 | -0.505751 | -1.34176 | 0.515723 | 159 | markowitz_mean_variance | bear_high_vol |<br>
+| -0.111995 | -0.88211 | 0.43369 | -4.77349 | -2.98585 | -0.121668 | -7.25016 | 0.357143 | 14 | markowitz_mean_variance | bear_low_vol |<br>
+| 0.179717 | 3.67657 | 0.467171 | 3.4735 | 11.8864 | -0.109293 | 33.6396 | 0.592593 | 27 | markowitz_mean_variance | bull_high_vol |<br>
+| 0.312691 | 0.263653 | 0.38312 | 0.724945 | 0.882267 | -0.375253 | 0.702602 | 0.505119 | 293 | markowitz_mean_variance | bull_low_vol |<br>
+| 0.891724 | 2.65297 | 0.373406 | 3.58254 | 12.2567 | -0.126777 | 20.9262 | 0.508065 | 124 | markowitz_mean_variance | sideway_high_vol |<br>
+| -0.459059 | -0.379005 | 0.419876 | -0.993897 | -1.43705 | -0.523145 | -0.724473 | 0.436923 | 325 | markowitz_mean_variance | sideway_low_vol |<br>
+| -0.0856232 | -0.132265 | 0.159285 | -0.996233 | -1.17513 | -0.0975314 | -1.35613 | 0.528302 | 159 | minimum_variance | bear_high_vol |<br>
+| -0.0365593 | -0.488495 | 0.0891003 | -7.80431 | -6.9991 | -0.0427418 | -11.429 | 0.285714 | 14 | minimum_variance | bear_low_vol |<br>
+| -0.00266688 | -0.0246161 | 0.074433 | -0.696076 | -0.992394 | -0.0221758 | -1.11004 | 0.518519 | 27 | minimum_variance | bull_high_vol |<br>
+| 0.433267 | 0.362862 | 0.0856538 | 3.31427 | 4.70083 | -0.0447662 | 8.10573 | 0.600683 | 293 | minimum_variance | bull_low_vol |<br>
+| 0.0760462 | 0.160616 | 0.120633 | 1.04892 | 1.5645 | -0.045022 | 3.56751 | 0.524194 | 124 | minimum_variance | sideway_high_vol |<br>
+| -0.0541661 | -0.0422608 | 0.0965722 | -0.704581 | -0.777392 | -0.112777 | -0.374728 | 0.526154 | 325 | minimum_variance | sideway_low_vol |<br>
+| -0.489467 | -0.655456 | 0.462351 | -2.13216 | -2.03375 | -0.494278 | -1.32609 | 0.45283 | 159 | xgboost_penalty_qaoa | bear_high_vol |<br>
+| -0.110826 | -0.879285 | 0.310507 | -6.72869 | -3.20877 | -0.134812 | -6.52232 | 0.357143 | 14 | xgboost_penalty_qaoa | bear_low_vol |<br>
+| 0.0271044 | 0.28352 | 0.300851 | 0.876994 | 1.22245 | -0.103807 | 2.73122 | 0.481481 | 27 | xgboost_penalty_qaoa | bull_high_vol |<br>
+| 0.360335 | 0.303001 | 0.20898 | 1.23015 | 1.71418 | -0.152007 | 1.99333 | 0.481229 | 293 | xgboost_penalty_qaoa | bull_low_vol |<br>
+| 0.31089 | 0.733506 | 0.246107 | 2.23818 | 4.92393 | -0.0866616 | 8.46402 | 0.475806 | 124 | xgboost_penalty_qaoa | sideway_high_vol |<br>
+| -0.158432 | -0.125187 | 0.281685 | -0.438731 | -0.723004 | -0.259612 | -0.482207 | 0.458462 | 325 | xgboost_penalty_qaoa | sideway_low_vol |<br>
+| -0.517687 | -0.685149 | 0.419125 | -2.61115 | -2.31012 | -0.504937 | -1.3569 | 0.427673 | 159 | xgboost_topk_exact | bear_high_vol |<br>
+| -0.0434461 | -0.550458 | 0.169686 | -4.79916 | -3.993 | -0.0639812 | -8.60343 | 0.428571 | 14 | xgboost_topk_exact | bear_low_vol |<br>
+| 0.0552765 | 0.652285 | 0.332223 | 1.58361 | 3.04791 | -0.0924271 | 7.05729 | 0.592593 | 27 | xgboost_topk_exact | bull_high_vol |<br>
+| 0.228937 | 0.193992 | 0.156045 | 1.02527 | 1.30671 | -0.110675 | 1.75282 | 0.498294 | 293 | xgboost_topk_exact | bull_low_vol |<br>
+| 0.301686 | 0.70886 | 0.221286 | 2.39828 | 5.76625 | -0.0874628 | 8.1047 | 0.483871 | 124 | xgboost_topk_exact | sideway_high_vol |<br>
+| -0.264063 | -0.211593 | 0.24584 | -0.962954 | -1.10506 | -0.299225 | -0.707139 | 0.464615 | 325 | xgboost_topk_exact | sideway_low_vol |<br>
+| -0.529606 | -0.69739 | 0.411677 | -2.7615 | -2.30413 | -0.51717 | -1.34847 | 0.446541 | 159 | xgboost_xy_qaoa | bear_high_vol |<br>
+| -0.0971111 | -0.840992 | 0.325934 | -5.55497 | -2.38692 | -0.116494 | -7.21918 | 0.428571 | 14 | xgboost_xy_qaoa | bear_low_vol |<br>
+| 0.0543413 | 0.63867 | 0.337979 | 1.5375 | 2.85576 | -0.0941088 | 6.78651 | 0.555556 | 27 | xgboost_xy_qaoa | bull_high_vol |<br>
+| 0.266769 | 0.225538 | 0.157946 | 1.18006 | 1.52992 | -0.117829 | 1.91412 | 0.498294 | 293 | xgboost_xy_qaoa | bull_low_vol |<br>
+| 0.360816 | 0.870316 | 0.228337 | 2.72742 | 6.60062 | -0.067044 | 12.9813 | 0.483871 | 124 | xgboost_xy_qaoa | sideway_high_vol |<br>
+| -0.28153 | -0.226142 | 0.251012 | -1.01261 | -1.23254 | -0.330569 | -0.684099 | 0.458462 | 325 | xgboost_xy_qaoa | sideway_low_vol |<br>
+<br>
+## H1–H6 interpretation<br>
+<br>
+- **H1: exploratory-only.** Mean XGBoost walk-forward Rank IC=0.0599; paired XGBoost–EWMA test rows=1.<br>
+- **H2: exploratory-only.** AUR diagnostics report signal, liquidity, risk, correlation, selected M and candidate turnover; causal superiority is not inferred.<br>
+- **H3: exploratory-only.** Fixed-weight XY simulation preserves cardinality by construction; penalty feasibility is measured from samples.<br>
+- **H4: exploratory-only.** Primary-solution and best-observed gaps are separated against the exact small-instance oracle.<br>
+- **H5: exploratory-only.** Net buy-and-hold performance uses common costs; paired benchmark comparisons=8.<br>
+- **H6: exploratory-only.** Sensitivity reruns solver/accounting on the declared grid and representative folds; inference is conditional on that grid.<br>
+<br>
+## Limitations<br>
+<br>
+- Securities are retained using full-period availability, which can create coverage or survivorship selection bias.<br>
+- Price completeness does not certify corporate-action adjustment; abnormal economic returns may remain even after row-level quality checks.<br>
+- No verified total-return benchmark is used, and optional point-in-time fundamentals, macroeconomic variables and foreign flow are excluded.<br>
+- Results are exploratory and must not be described as confirmatory evidence for all HOSE securities.<br>
+- The XY-QAOA implementation is an ideal fixed-Hamming-weight statevector simulator, not quantum hardware.<br>
+- Statistical results are conditional on the retained sample, period, costs and tested parameter grid.<br>
+<br>
+## Reproduce<br>
+<br>
+```powershell<br>
+python -m src.cli run-complete-case --config configs/hose300_complete_case_exploratory.yaml<br>
+```<br>
+</body></html>

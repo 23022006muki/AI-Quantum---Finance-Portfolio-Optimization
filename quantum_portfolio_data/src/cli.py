@@ -135,6 +135,22 @@ def parser() -> argparse.ArgumentParser:
     complete_case.add_argument("--to", dest="end", default="2025-12-31")
     complete_case.add_argument("--minimum-total-observations", type=int, default=40)
     complete_case.add_argument("--maximum-calendar-gap-days", type=int, default=5)
+    data_b = sub.add_parser(
+        "run-data-b",
+        help=(
+            "Reuse the immutable Data A cleaned panel, create a separate Data B workspace, "
+            "and run the optimized leakage-aware exploratory pipeline"
+        ),
+    )
+    data_b.add_argument(
+        "--config", type=Path, default=ROOT / "configs" / "data_b.yaml",
+    )
+    data_b.add_argument(
+        "--base-workspace", type=Path, default=ROOT / "outputs" / "Data A",
+    )
+    data_b.add_argument(
+        "--output-workspace", type=Path, default=ROOT / "outputs" / "Data B",
+    )
     cafef = sub.add_parser(
         "run-cafef",
         help="Crawl a separate CafeF-only panel, quality-gate it, and run only if accepted",
@@ -640,6 +656,62 @@ def main(argv=None) -> int:
             raise RuntimeError(f"Experiment artifact already exists: {out}")
         shutil.copytree(temporary_out, out)
         print(f"Complete-case workspace: {workspace}")
+        print_experiment_summary(out)
+    elif args.command == "run-data-b":
+        base_workspace = args.base_workspace.resolve()
+        output_workspace = args.output_workspace.resolve()
+        base_outputs = base_workspace / "outputs"
+        required = [
+            base_outputs / "normalized" / "prices.parquet",
+            base_outputs / "normalized" / "security_master.parquet",
+            base_outputs / "raw" / "manifest.json",
+        ]
+        missing = [str(path) for path in required if not path.exists()]
+        if missing:
+            raise SystemExit("Data B requires the existing Data A package: " + ", ".join(missing))
+        if not output_workspace.exists():
+            (output_workspace / "outputs").mkdir(parents=True, exist_ok=False)
+            for folder in ["raw", "normalized", "reports"]:
+                source = base_outputs / folder
+                if source.exists():
+                    shutil.copytree(source, output_workspace / "outputs" / folder)
+        else:
+            output_prices = output_workspace / "outputs" / "normalized" / "prices.parquet"
+            if not output_prices.exists():
+                raise RuntimeError(
+                    f"Existing Data B folder is incomplete and was not overwritten: {output_workspace}"
+                )
+            if sha256_file(output_prices) != sha256_file(required[0]):
+                raise RuntimeError(
+                    "Existing Data B price panel no longer matches Data A; refusing implicit overwrite."
+                )
+        data_b_paths = Paths(output_workspace)
+        quality, _ = validate_data(data_b_paths)
+        print(json.dumps(quality, indent=2, ensure_ascii=False))
+        out = run_experiment(output_workspace, args.config.resolve())
+        base_manifest = base_workspace / "DATA_A_PACKAGE.json"
+        package = {
+            "package": "Data B",
+            "status": "completed_exploratory" if (out / "strategy_metrics_summary.csv").exists()
+            else "incomplete",
+            "base_workspace": str(base_workspace),
+            "base_data_a_manifest": str(base_manifest) if base_manifest.exists() else None,
+            "base_price_sha256": sha256_file(required[0]),
+            "config": str(args.config.resolve()),
+            "config_sha256": sha256_file(args.config.resolve()),
+            "experiment_id": out.name,
+            "experiment_path": str(out),
+            "method": (
+                "Data A reuse + purged-validation XGBoost/technical blend + adaptive "
+                "universe reduction + best-observed XY-QAOA + constrained weights + "
+                "market-regime exposure"
+            ),
+            "interpretation": "exploratory_only_not_confirmatory_research",
+        }
+        (output_workspace / "DATA_B_PACKAGE.json").write_text(
+            json.dumps(package, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        print(f"Data B workspace: {output_workspace}")
         print_experiment_summary(out)
     elif args.command == "run-cafef":
         if args.existing_workspace:

@@ -1,0 +1,14 @@
+{
+  "package": "Data B",
+  "status": "completed_exploratory",
+  "base_workspace": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\Data A",
+  "base_data_a_manifest": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\Data A\\DATA_A_PACKAGE.json",
+  "base_price_sha256": "6e046b509fef366681866328d5bd99ec63541c2de8597f0e7bebc101813baa05",
+  "config": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\configs\\data_b.yaml",
+  "config_sha256": "a800b2584d6c12517895bcb743c178d2f78bc89b482b8776411caa46d66716a6",
+  "experiment_id": "20260815T184821-a800b2584d",
+  "experiment_path": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\Data B\\outputs\\experiments\\20260815T184821-a800b2584d",
+  "system_and_results_report": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\Data B\\DATA_B_SYSTEM_AND_RESULTS_VI.md",
+  "method": "Data A reuse + purged-validation XGBoost/technical blend + adaptive universe reduction + best-observed XY-QAOA + constrained weights + market-regime exposure",
+  "interpretation": "exploratory_only_not_confirmatory_research"
+}

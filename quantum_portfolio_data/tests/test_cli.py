@@ -3,6 +3,14 @@ from pathlib import Path
 import src.cli as cli
 
 
+def test_data_b_command_has_stable_defaults():
+    args = cli.parser().parse_args(["run-data-b"])
+    assert args.command == "run-data-b"
+    assert args.config.name == "data_b.yaml"
+    assert args.base_workspace.name == "Data A"
+    assert args.output_workspace.name == "Data B"
+
+
 def test_fixture_run_full_never_mutates_real_normalized_workspace(
     tmp_path: Path, monkeypatch,
 ):

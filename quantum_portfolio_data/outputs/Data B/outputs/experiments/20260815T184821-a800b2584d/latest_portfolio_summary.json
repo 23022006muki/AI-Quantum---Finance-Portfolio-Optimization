@@ -1,0 +1,23 @@
+{
+  "decision_time": "2025-11-28 00:00:00",
+  "target_equity_exposure": 0.25,
+  "target_cash_weight": 0.75,
+  "executed_equity_weight": 0.19102666796875,
+  "executed_cash_weight": 0.80897333203125,
+  "market_regime": "risk_off",
+  "target_selected_expected_return": 0.001662184874967279,
+  "executed_selected_expected_return": 0.0012369886192729353,
+  "solver_solution_selection": "best_observed_feasible",
+  "tickers": [
+    "SMB",
+    "KOS",
+    "HTG",
+    "TLD"
+  ],
+  "weights": {
+    "SMB": 0.0804,
+    "KOS": 0.03895,
+    "HTG": 0.03891666796875,
+    "TLD": 0.03276
+  }
+}

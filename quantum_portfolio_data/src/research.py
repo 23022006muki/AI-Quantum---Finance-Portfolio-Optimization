@@ -35,6 +35,21 @@ FEATURES = [
 ]
 
 
+# Data B uses a deliberately small, interpretable technical composite alongside
+# XGBoost.  Every component is converted to a same-date cross-sectional percentile
+# before blending, so no future observation or arbitrary feature scale can dominate.
+TECHNICAL_FACTOR_WEIGHTS = {
+    "return_20d": 0.25,
+    "return_60d": 0.25,
+    "return_120d": 0.15,
+    "sma_ratio_20": 0.10,
+    "ema_ratio_20": 0.10,
+    "volatility_20d": -0.05,
+    "downside_volatility_20d": -0.05,
+    "drawdown_60d": 0.05,
+}
+
+
 class ResearchRunBlocked(RuntimeError):
     """Raised after an auditable blocked-run artifact has been written."""
 
@@ -338,24 +353,72 @@ def adaptive_reduce(
     snap["aur_eligible"] = True
     liquidity_quantile = cfg.get("liquidity_floor_quantile")
     risk_quantile = cfg.get("risk_ceiling_quantile")
+    expected_return_floor = cfg.get("minimum_expected_return")
+    expected_return_column = str(cfg.get(
+        "expected_return_column", "optimization_expected_return"
+    ))
+    expected_mask = pd.Series(True, index=snap.index)
+    if expected_return_floor is not None:
+        if expected_return_column not in snap:
+            raise ValueError(
+                f"Adaptive reduction expected-return column is missing: {expected_return_column}"
+            )
+        expected_mask = pd.to_numeric(
+            snap[expected_return_column], errors="coerce"
+        ).ge(float(expected_return_floor))
+        snap["aur_eligible"] &= expected_mask
+    liquidity_mask = pd.Series(True, index=snap.index)
     if liquidity_quantile is not None:
         liquidity_floor = float(snap["liquidity_20d"].quantile(float(liquidity_quantile)))
-        snap["aur_eligible"] &= snap["liquidity_20d"].ge(liquidity_floor)
+        liquidity_mask = snap["liquidity_20d"].ge(liquidity_floor)
+        snap["aur_eligible"] &= liquidity_mask
     else:
         liquidity_floor = np.nan
+    risk_mask = pd.Series(True, index=snap.index)
     if risk_quantile is not None:
         risk_ceiling = float(snap["volatility_20d"].quantile(float(risk_quantile)))
-        snap["aur_eligible"] &= snap["volatility_20d"].le(risk_ceiling)
+        risk_mask = snap["volatility_20d"].le(risk_ceiling)
+        snap["aur_eligible"] &= risk_mask
     else:
         risk_ceiling = np.nan
     eligible = snap[snap["aur_eligible"]].copy()
     cardinality = int(cfg.get("cardinality", 1))
+    expected_return_filter_status = "not_configured"
+    force_defensive_exposure = False
     if len(eligible) < cardinality:
-        snap["aur_eligible"] = True
-        eligible = snap.copy()
+        if expected_return_floor is not None and cfg.get(
+            "require_minimum_expected_return", False
+        ):
+            positive_count = int(expected_mask.sum())
+            if positive_count >= cardinality:
+                # Preserve the expected-return floor and relax only secondary
+                # liquidity/risk screens.  This rule is deterministic and audited.
+                snap["aur_eligible"] = expected_mask
+                eligible = snap[snap["aur_eligible"]].copy()
+                expected_return_filter_status = "secondary_filters_relaxed"
+            elif cfg.get("insufficient_positive_policy", "raise") == "defensive_topk":
+                # Do not manufacture positive forecasts.  Keep a tradable candidate
+                # set for solver diagnostics, but force the portfolio to the declared
+                # defensive equity floor later in the pipeline.
+                secondary_mask = liquidity_mask & risk_mask
+                snap["aur_eligible"] = secondary_mask if int(secondary_mask.sum()) >= cardinality else True
+                eligible = snap[snap["aur_eligible"]].copy()
+                expected_return_filter_status = "insufficient_positive_defensive_topk"
+                force_defensive_exposure = True
+            else:
+                raise ValueError(
+                    f"Only {positive_count} assets satisfy the declared expected-return "
+                    f"floor; cardinality={cardinality}."
+                )
+        else:
+            snap["aur_eligible"] = True
+            eligible = snap.copy()
+            expected_return_filter_status = "all_filters_relaxed"
         threshold_relaxed = True
     else:
         threshold_relaxed = False
+        if expected_return_floor is not None:
+            expected_return_filter_status = "enforced"
     z = lambda s: (s - s.mean()) / (s.std(ddof=0) + 1e-12)
     snap["signal_z"] = z(snap["signal"])
     snap["liquidity_z"] = z(snap["liquidity_20d"])
@@ -474,6 +537,10 @@ def adaptive_reduce(
     snap["retained_prior_candidates"] = len(set(selected) & previous_candidates)
     snap["liquidity_floor"] = liquidity_floor
     snap["risk_ceiling"] = risk_ceiling
+    snap["minimum_expected_return"] = expected_return_floor
+    snap["expected_return_column"] = expected_return_column
+    snap["expected_return_filter_status"] = expected_return_filter_status
+    snap["force_defensive_exposure"] = force_defensive_exposure
     snap["cluster_cap"] = cluster_cap
     snap["sector_candidate_cap"] = sector_cap if sector_available else np.nan
     return snap.sort_values(["selected_candidate", "base_score"], ascending=[False, False])
@@ -587,6 +654,177 @@ def round_target_weights_to_board_lot(
     return executed, diagnostics
 
 
+def technical_factor_score(frame: pd.DataFrame) -> pd.Series:
+    """Return a point-in-time cross-sectional momentum/risk score in ``[0, 1]``.
+
+    Positive weights reward momentum and trend.  Negative weights reward lower
+    volatility.  Ranking is performed independently at every date, which makes the
+    score comparable across market regimes without fitting on the test window.
+    """
+    if frame.empty:
+        return pd.Series(dtype=float, index=frame.index)
+    numerator = pd.Series(0.0, index=frame.index, dtype=float)
+    denominator = pd.Series(0.0, index=frame.index, dtype=float)
+    dates = pd.to_datetime(frame["date"])
+    for column, signed_weight in TECHNICAL_FACTOR_WEIGHTS.items():
+        if column not in frame:
+            continue
+        values = pd.to_numeric(frame[column], errors="coerce")
+        ranked = values.groupby(dates).rank(pct=True, method="average")
+        if signed_weight < 0:
+            ranked = 1.0 - ranked
+        weight = abs(float(signed_weight))
+        present = ranked.notna().astype(float)
+        numerator = numerator.add(ranked.fillna(0.0) * weight, fill_value=0.0)
+        denominator = denominator.add(present * weight, fill_value=0.0)
+    return (numerator / denominator.replace(0.0, np.nan)).fillna(0.5).clip(0.0, 1.0)
+
+
+def _daily_rank_ic(scores: pd.Series, target: pd.Series, dates: pd.Series) -> pd.Series:
+    values = pd.DataFrame({"score": scores, "target": target, "date": pd.to_datetime(dates)})
+    rows = []
+    for date, group in values.dropna().groupby("date"):
+        if len(group) < 3 or group["score"].nunique() < 2 or group["target"].nunique() < 2:
+            continue
+        rows.append((date, float(spearmanr(group["score"], group["target"]).statistic)))
+    return pd.Series({date: value for date, value in rows}, dtype=float)
+
+
+def select_validation_signal_blend(
+    model_bundle: dict,
+    calibration: pd.DataFrame,
+    snapshot: pd.DataFrame,
+    cfg: dict,
+) -> tuple[np.ndarray, pd.DataFrame, np.ndarray, dict]:
+    """Select an XGBoost/technical blend using purged validation observations only."""
+    usable = calibration.dropna(subset=["target_rank", "target_return_20d"]).copy()
+    if len(usable) < 20:
+        raise ValueError("At least 20 purged observations are required for signal blending.")
+    raw_xgb = pd.Series(predict(model_bundle, usable), index=usable.index, dtype=float)
+    xgb_rank = raw_xgb.groupby(pd.to_datetime(usable["date"])).rank(pct=True, method="average")
+    factor = technical_factor_score(usable)
+    grid = sorted({float(value) for value in cfg.get(
+        "xgboost_weight_grid", [0.25, 0.50, 0.75, 1.00]
+    )})
+    if not grid or min(grid) < 0 or max(grid) > 1:
+        raise ValueError("xgboost_weight_grid must contain values in [0, 1].")
+    stability_penalty = float(cfg.get("blend_stability_penalty", 0.25))
+    candidates = []
+    for xgb_weight in grid:
+        blended = xgb_weight * xgb_rank + (1.0 - xgb_weight) * factor
+        daily_ic = _daily_rank_ic(blended, usable["target_rank"], usable["date"])
+        mean_ic = float(daily_ic.mean()) if len(daily_ic) else -np.inf
+        standard_error = (
+            float(daily_ic.std(ddof=1) / math.sqrt(len(daily_ic))) if len(daily_ic) > 1 else 0.0
+        )
+        objective = mean_ic - stability_penalty * standard_error
+        candidates.append({
+            "xgboost_weight": xgb_weight,
+            "technical_weight": 1.0 - xgb_weight,
+            "validation_mean_daily_rank_ic": mean_ic,
+            "validation_rank_ic_standard_error": standard_error,
+            "validation_objective": objective,
+            "validation_days": int(len(daily_ic)),
+            "validation_positive_ic_ratio": (
+                float((daily_ic > 0).mean()) if len(daily_ic) else np.nan
+            ),
+        })
+    best = max(
+        candidates,
+        key=lambda row: (row["validation_objective"], row["xgboost_weight"]),
+    )
+    chosen_weight = float(best["xgboost_weight"])
+    calibration_scores = chosen_weight * xgb_rank + (1.0 - chosen_weight) * factor
+    snapshot_xgb = pd.Series(predict(model_bundle, snapshot), index=snapshot.index, dtype=float)
+    snapshot_xgb_rank = snapshot_xgb.rank(pct=True, method="average")
+    snapshot_factor = technical_factor_score(snapshot)
+    snapshot_scores = chosen_weight * snapshot_xgb_rank + (1.0 - chosen_weight) * snapshot_factor
+    diagnostics = {
+        "method": "purged_validation_xgboost_technical_blend",
+        **best,
+        "grid": candidates,
+    }
+    return (
+        snapshot_scores.to_numpy(dtype=float), usable,
+        calibration_scores.to_numpy(dtype=float), diagnostics,
+    )
+
+
+def calibrate_scores_to_returns(
+    calibration: pd.DataFrame,
+    calibration_scores: np.ndarray,
+    snapshot_scores: np.ndarray,
+    method: str,
+) -> tuple[np.ndarray, dict]:
+    """Map arbitrary point-in-time scores to the 20-day return scale."""
+    realized = pd.to_numeric(calibration["target_return_20d"], errors="coerce").to_numpy()
+    scores = np.asarray(calibration_scores, dtype=float)
+    valid = np.isfinite(realized) & np.isfinite(scores)
+    if valid.sum() < 20:
+        raise ValueError("At least 20 finite calibration observations are required.")
+    realized = realized[valid]
+    scores = scores[valid]
+    low, high = np.nanquantile(realized, [0.01, 0.99])
+    realized = np.clip(realized, low, high)
+    design = np.column_stack([np.ones(len(scores)), scores])
+    intercept, slope = np.linalg.lstsq(design, realized, rcond=None)[0]
+    expected = np.clip(intercept + slope * np.asarray(snapshot_scores, dtype=float), low, high)
+    fitted = design @ np.asarray([intercept, slope])
+    ss_total = float(np.sum((realized - realized.mean()) ** 2))
+    r_squared = 1 - float(np.sum((realized - fitted) ** 2)) / ss_total if ss_total > 0 else np.nan
+    return expected, {
+        "method": method,
+        "observations": int(len(realized)), "intercept": float(intercept),
+        "slope": float(slope), "r_squared": float(r_squared),
+        "target_clip_low": float(low), "target_clip_high": float(high),
+    }
+
+
+def market_regime_exposure(history: pd.DataFrame, cfg: dict) -> tuple[float, dict]:
+    """Determine a pre-decision equity exposure from broad-market trend and volatility."""
+    if not cfg or cfg.get("mode", "none") == "none":
+        return 1.0, {"mode": "none", "equity_exposure": 1.0, "cash_weight": 0.0}
+    if cfg.get("mode") != "market_trend_volatility":
+        raise ValueError(f"Unsupported exposure mode: {cfg.get('mode')}")
+    fast_days = int(cfg.get("fast_days", 63))
+    slow_days = int(cfg.get("slow_days", 126))
+    market = (
+        history.dropna(subset=["date", "ret1"])
+        .groupby("date")["ret1"].median().sort_index().tail(max(fast_days, slow_days))
+    )
+    if len(market) < max(20, fast_days):
+        return 1.0, {
+            "mode": "market_trend_volatility", "equity_exposure": 1.0,
+            "cash_weight": 0.0, "fallback": "insufficient_market_history",
+        }
+    fast_return = float((1.0 + market.tail(fast_days)).prod() - 1.0)
+    slow_return = float((1.0 + market.tail(slow_days)).prod() - 1.0)
+    if fast_return > 0 and slow_return > 0:
+        trend_exposure = 1.0
+        regime = "risk_on"
+    elif fast_return > 0 or slow_return > 0:
+        trend_exposure = float(cfg.get("neutral_exposure", 0.60))
+        regime = "mixed"
+    else:
+        trend_exposure = float(cfg.get("minimum_exposure", 0.25))
+        regime = "risk_off"
+    realized_volatility = float(market.tail(60).std(ddof=1) * math.sqrt(252))
+    target_volatility = float(cfg.get("target_market_volatility", 0.22))
+    volatility_scale = (
+        min(1.0, target_volatility / realized_volatility)
+        if np.isfinite(realized_volatility) and realized_volatility > 1e-12 else 1.0
+    )
+    minimum = float(cfg.get("minimum_exposure", 0.25))
+    exposure = float(np.clip(trend_exposure * volatility_scale, minimum, 1.0))
+    return exposure, {
+        "mode": "market_trend_volatility", "regime": regime,
+        "fast_days": fast_days, "slow_days": slow_days,
+        "fast_market_return": fast_return, "slow_market_return": slow_return,
+        "market_volatility_annualized": realized_volatility,
+        "target_market_volatility": target_volatility,
+        "volatility_scale": volatility_scale,
+        "equity_exposure": exposure, "cash_weight": 1.0 - exposure,
+    }
 def drift_weights(target: dict[str, float], test_returns: pd.DataFrame) -> dict[str, float]:
     """Carry target weights to the next rebalance after realized asset returns."""
     if not target:
@@ -1152,7 +1390,7 @@ def paired_block_bootstrap_test(
 
 
 def optimize_weights(
-    mu: np.ndarray, cov: np.ndarray, lower: float, upper: float | np.ndarray,
+    mu: np.ndarray, cov: np.ndarray, lower: float | np.ndarray, upper: float | np.ndarray,
     risk_aversion: float, previous: np.ndarray | None, turnover_penalty: float,
     *, turnover_limit: float | None = None, sectors: list[str] | None = None,
     sector_cap: float | None = None,
@@ -1161,11 +1399,16 @@ def optimize_weights(
     mu = np.nan_to_num(np.asarray(mu, dtype=float))
     cov = np.nan_to_num(np.asarray(cov, dtype=float))
     cov = (cov + cov.T) / 2 + np.eye(n) * 1e-10
+    lower_bounds = np.broadcast_to(np.asarray(lower, dtype=float), (n,)).copy()
     upper_bounds = np.broadcast_to(np.asarray(upper, dtype=float), (n,)).copy()
-    if n * lower > 1 + 1e-12 or upper_bounds.sum() < 1 - 1e-12:
+    if (
+        lower_bounds.sum() > 1 + 1e-12
+        or upper_bounds.sum() < 1 - 1e-12
+        or np.any(lower_bounds > upper_bounds + 1e-12)
+    ):
         raise ValueError(
             f"Infeasible weight bounds for selected cardinality n={n}, "
-            f"lower={lower}, total_upper={upper_bounds.sum()}"
+            f"total_lower={lower_bounds.sum()}, total_upper={upper_bounds.sum()}"
         )
     prev = np.ones(n) / n if previous is None or len(previous) != n else previous
     def objective(w):
@@ -1188,8 +1431,14 @@ def optimize_weights(
             constraints.append({
                 "type": "ineq", "fun": lambda w, m=mask: float(sector_cap) - float(m @ w),
             })
-    result = minimize(objective, np.ones(n) / n, method="SLSQP",
-                      bounds=[(lower, float(limit)) for limit in upper_bounds],
+    residual_capacity = upper_bounds - lower_bounds
+    residual_weight = 1.0 - float(lower_bounds.sum())
+    initial = lower_bounds + (
+        residual_weight * residual_capacity / residual_capacity.sum()
+        if residual_capacity.sum() > 1e-12 else 0.0
+    )
+    result = minimize(objective, initial, method="SLSQP",
+                      bounds=[(float(floor), float(limit)) for floor, limit in zip(lower_bounds, upper_bounds)],
                       constraints=constraints,
                       options={"maxiter": 1000, "ftol": 1e-10})
     if result.success and np.isfinite(result.x).all():
@@ -1199,16 +1448,16 @@ def optimize_weights(
     # Deterministic projected-gradient fallback remains a genuine convex classical
     # optimizer and is more stable than silently returning arbitrary weights.
     def project_box_simplex(v):
-        lo, hi = np.min(v - upper_bounds), np.max(v - lower)
+        lo, hi = np.min(v - upper_bounds), np.max(v - lower_bounds)
         for _ in range(100):
             mid = (lo + hi) / 2
-            w = np.clip(v - mid, lower, upper_bounds)
+            w = np.clip(v - mid, lower_bounds, upper_bounds)
             if w.sum() > 1:
                 lo = mid
             else:
                 hi = mid
-        return np.clip(v - (lo + hi) / 2, lower, upper_bounds)
-    w = np.ones(n) / n
+        return np.clip(v - (lo + hi) / 2, lower_bounds, upper_bounds)
+    w = initial.copy()
     lipschitz = max(1e-6, 2 * risk_aversion * np.linalg.eigvalsh(cov).max())
     step = min(0.1, 1 / lipschitz)
     for _ in range(3000):
@@ -1451,6 +1700,13 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         raise RuntimeError("Internal exact statevector demo is limited to 8 candidate qubits.")
     prices = pd.read_parquet(paths.normalized / "prices.parquet")
     prices["date"] = pd.to_datetime(prices["date"])
+    data_cfg = cfg.get("data", {})
+    if data_cfg.get("start"):
+        prices = prices[prices["date"] >= pd.Timestamp(data_cfg["start"])].copy()
+    if data_cfg.get("end"):
+        prices = prices[prices["date"] <= pd.Timestamp(data_cfg["end"])].copy()
+    if prices.empty:
+        raise ValueError("No price observations remain inside the configured data interval.")
     prices = prices.sort_values(["ticker", "date"])
     prices["ret1"] = prices.groupby("ticker")["adjusted_close"].pct_change()
     target_horizon = int(cfg.get("target", {}).get(
@@ -1463,6 +1719,16 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                        wf.get("embargo_days", cfg.get("target", {}).get("horizon_days", 20)),
                        wf.get("selection", "evenly_spaced"),
                        wf.get("final_holdout_months", 0))
+    evaluation_start = pd.Timestamp(wf["evaluation_start"]) if wf.get("evaluation_start") else None
+    evaluation_end = pd.Timestamp(wf["evaluation_end"]) if wf.get("evaluation_end") else None
+    if evaluation_start is not None:
+        folds = [fold for fold in folds if pd.Timestamp(fold["test_start"]) >= evaluation_start]
+    if evaluation_end is not None:
+        folds = [fold for fold in folds if pd.Timestamp(fold["test_end"]) <= evaluation_end]
+    for fold_id, fold in enumerate(folds):
+        fold["fold"] = fold_id
+    if not folds:
+        raise ValueError("The configured evaluation interval produced no walk-forward folds.")
     stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     cfg_hash = hashlib.sha256(config_path.read_bytes()).hexdigest()[:10]
     experiment_id = f"{stamp}-{cfg_hash}"
@@ -1491,6 +1757,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     ablation_rows, sensitivity_rows, fold_audit_rows = [], [], []
     feature_coverage_rows, tuning_rows, aur_diagnostic_rows = [], [], []
     calibration_rows, missing_return_rows, constraint_rows = [], [], []
+    signal_model_rows, exposure_rows = [], []
     capacity_scenario_rows = []
     previous_weights: dict[str, dict[str, float]] = {
         "full_pipeline_xy_qaoa": {},
@@ -1566,7 +1833,8 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             model_cfg.update(frozen_model_params)
             model_cfg["tuning_enabled"] = False
         bundle = fit_ranker(train, val, model_cfg)
-        snap["signal"] = predict(bundle, snap)
+        snap["xgboost_signal"] = predict(bundle, snap)
+        snap["signal"] = snap["xgboost_signal"]
         calibration_frame = val.dropna(subset=["target_return_20d"])
         calibration_source = "purged_validation"
         if len(calibration_frame) < 20:
@@ -1579,6 +1847,53 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "fold": fold["fold"], "decision_time": snapshot_date,
             "calibration_source": calibration_source, **calibration,
         })
+        signal_mode = str(model_cfg.get("signal_mode", "xgboost"))
+        snap["technical_factor_signal"] = technical_factor_score(snap)
+        if signal_mode == "validation_blend":
+            (
+                blended_signal, blend_calibration_frame, blend_calibration_scores,
+                blend_diagnostics,
+            ) = select_validation_signal_blend(
+                bundle, calibration_frame, snap, model_cfg,
+            )
+            snap["signal"] = blended_signal
+            (
+                snap["optimization_expected_return"], blend_calibration,
+            ) = calibrate_scores_to_returns(
+                blend_calibration_frame, blend_calibration_scores,
+                snap["signal"].to_numpy(dtype=float),
+                "purged_validation_blended_signal_to_return",
+            )
+            signal_model_rows.append({
+                "fold": fold["fold"], "decision_time": snapshot_date,
+                "signal_mode": signal_mode,
+                "selected_xgboost_weight": blend_diagnostics["xgboost_weight"],
+                "selected_technical_weight": blend_diagnostics["technical_weight"],
+                "validation_mean_daily_rank_ic": blend_diagnostics[
+                    "validation_mean_daily_rank_ic"
+                ],
+                "validation_rank_ic_standard_error": blend_diagnostics[
+                    "validation_rank_ic_standard_error"
+                ],
+                "validation_objective": blend_diagnostics["validation_objective"],
+                "validation_days": blend_diagnostics["validation_days"],
+                "validation_positive_ic_ratio": blend_diagnostics[
+                    "validation_positive_ic_ratio"
+                ],
+                "grid": json.dumps(blend_diagnostics["grid"], sort_keys=True),
+                "calibration_method": blend_calibration["method"],
+                "calibration_slope": blend_calibration["slope"],
+                "calibration_r_squared": blend_calibration["r_squared"],
+            })
+        elif signal_mode == "xgboost":
+            snap["optimization_expected_return"] = snap["xgboost_expected_return"]
+            signal_model_rows.append({
+                "fold": fold["fold"], "decision_time": snapshot_date,
+                "signal_mode": signal_mode, "selected_xgboost_weight": 1.0,
+                "selected_technical_weight": 0.0,
+            })
+        else:
+            raise ValueError(f"Unsupported model signal_mode: {signal_mode}")
         for feature, coverage in bundle["feature_coverage"].items():
             feature_coverage_rows.append({
                 "fold": fold["fold"], "feature": feature, "training_coverage": coverage,
@@ -1600,23 +1915,59 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         ).mean().iloc[-1]
         snap["ewma_signal"] = snap["ticker"].map(ewma_signal)
         known = snap.dropna(subset=["target_rank"])
-        ic = spearmanr(known["signal"], known["target_rank"]).statistic if len(known) > 2 else np.nan
+        ic = spearmanr(known["xgboost_signal"], known["target_rank"]).statistic if len(known) > 2 else np.nan
+        optimization_ic = (
+            spearmanr(known["signal"], known["target_rank"]).statistic
+            if len(known) > 2 else np.nan
+        )
         ewma_known = known.dropna(subset=["ewma_signal"])
         ewma_ic = (spearmanr(ewma_known["ewma_signal"], ewma_known["target_rank"]).statistic
                    if len(ewma_known) > 2 else np.nan)
         for row in snap.itertuples():
             ranking_rows.append({"fold": fold["fold"], "decision_time": snapshot_date,
                                  "ticker": row.ticker, "signal": row.signal,
+                                 "xgboost_signal": row.xgboost_signal,
+                                 "technical_factor_signal": row.technical_factor_signal,
                                  "xgboost_expected_return": row.xgboost_expected_return,
+                                 "optimization_expected_return": row.optimization_expected_return,
                                  "ewma_signal": row.ewma_signal, "fold_rank_ic": ic,
-                                 "xgboost_rank_ic": ic, "ewma_rank_ic": ewma_ic,
+                                 "xgboost_rank_ic": ic, "optimization_rank_ic": optimization_ic,
+                                 "ewma_rank_ic": ewma_ic,
                                  "universe_snapshot_time": universe_time})
         previous_candidates = (
             set(aur_diagnostic_rows[-1]["selected_tickers"].split("|"))
             if aur_diagnostic_rows else set()
         )
+        aur_snapshot = snap
+        pre_solver_execution_exclusions = 0
+        maximum_executable_price = np.nan
+        pre_constraints = cfg.get("constraints", {})
+        pre_notional = pre_constraints.get("portfolio_notional_vnd")
+        pre_board_lot = int(pre_constraints.get("board_lot", 1))
+        minimum_exposure = float(cfg.get("exposure", {}).get("minimum_exposure", 1.0))
+        pre_cardinality = int(cfg["reduction"].get("cardinality", 1))
+        if pre_notional and pre_board_lot > 1 and minimum_exposure > 0:
+            # The conservative 1/K cap makes every possible K-asset combination
+            # board-lot feasible, not merely each asset in isolation.
+            per_lot_sleeve_cap = min(
+                float(cfg["weights"]["upper"]), 1.0 / pre_cardinality
+            )
+            maximum_executable_price = (
+                float(pre_notional) * minimum_exposure * per_lot_sleeve_cap
+                / pre_board_lot / 1.000001
+            )
+            execution_eligible = pd.to_numeric(snap["close"], errors="coerce").le(
+                maximum_executable_price
+            )
+            pre_solver_execution_exclusions = int((~execution_eligible).sum())
+            aur_snapshot = snap[execution_eligible].copy()
+            if len(aur_snapshot) < pre_cardinality:
+                raise ValueError(
+                    "Too few assets can satisfy board-lot, minimum-exposure and "
+                    "upper-weight constraints before solver selection."
+                )
         reduced = adaptive_reduce(
-            snap, history, cfg["reduction"], previous_candidates=previous_candidates,
+            aur_snapshot, history, cfg["reduction"], previous_candidates=previous_candidates,
         )
         reduced["fold"] = fold["fold"]
         reduced["decision_time"] = snapshot_date
@@ -1631,6 +1982,10 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "relative_signal_dispersion": float(reduced["relative_signal_dispersion"].iloc[0]),
             "average_abs_correlation": float(reduced["average_abs_correlation"].iloc[0]),
             "candidate_size_reason": reduced["candidate_size_reason"].iloc[0],
+            "expected_return_filter_status": reduced["expected_return_filter_status"].iloc[0],
+            "force_defensive_exposure": bool(reduced["force_defensive_exposure"].iloc[0]),
+            "pre_solver_execution_exclusions": pre_solver_execution_exclusions,
+            "maximum_executable_price_at_minimum_exposure": maximum_executable_price,
             "retained_prior_candidates": int(reduced["retained_prior_candidates"].iloc[0]),
             "candidate_turnover": candidate_turnover,
             "selected_tickers": "|".join(sorted(selected_now)),
@@ -1645,7 +2000,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             ),
         })
         fixed_m = int(reduced["selected_m"].iloc[0])
-        fixed_topm = set(snap.nlargest(fixed_m, "signal")["ticker"])
+        fixed_topm = set(aur_snapshot.nlargest(fixed_m, "signal")["ticker"])
         adaptive_eval = snap[snap["ticker"].isin(selected_now)]
         fixed_eval = snap[snap["ticker"].isin(fixed_topm)]
         history_corr = history.pivot(index="date", columns="ticker", values="ret1").tail(120).corr()
@@ -1665,13 +2020,17 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "fixed_topm_abs_correlation": _set_abs_corr(fixed_topm),
         })
         selection_columns = [
-            "fold", "decision_time", "ticker", "signal", "xgboost_expected_return",
+            "fold", "decision_time", "ticker", "signal", "xgboost_signal",
+            "technical_factor_signal", "xgboost_expected_return",
+            "optimization_expected_return",
             "ewma_signal", "liquidity_20d", "adv_20d",
             "volatility_20d", "signal_z", "liquidity_z", "risk_z", "base_score",
             "selected_candidate", "decision_reason", "eligible_count", "selected_m",
             "signal_dispersion", "relative_signal_dispersion", "average_abs_correlation",
             "candidate_size_reason",
             "aur_eligible", "liquidity_floor", "risk_ceiling",
+            "minimum_expected_return", "expected_return_column",
+            "expected_return_filter_status", "force_defensive_exposure",
             "correlation_cluster", "cluster_cap", "sector_candidate_cap",
         ]
         selection_rows.extend(reduced[selection_columns].to_dict("records"))
@@ -1710,6 +2069,9 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         if expected_return_source == "xgboost_calibrated":
             expected_map = snap.set_index("ticker")["xgboost_expected_return"]
             mu = expected_map.reindex(candidates).to_numpy(dtype=float)
+        elif expected_return_source == "validation_blend_calibrated":
+            expected_map = snap.set_index("ticker")["optimization_expected_return"]
+            mu = expected_map.reindex(candidates).to_numpy(dtype=float)
         elif expected_return_source == "ewma":
             mu = ewma_mu
         else:
@@ -1726,6 +2088,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "covariance_method": covariance_method, "covariance_span": covariance_span,
             "holding_horizon_days": holding_horizon,
             "expected_return_source": expected_return_source,
+            "signal_mode": signal_mode,
             "ewma_expected_return_reference": ewma_mu.tolist(),
             "minimum_history_coverage": minimum_history_coverage,
         })
@@ -1753,7 +2116,15 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             *xy_runs,
         ]
         chosen_xy = min(xy_runs, key=lambda result: result["expected_energy"])
-        chosen_xy_bits = np.asarray(chosen_xy["bits"]).copy()
+        solution_selection = str(cfg.get("solver", {}).get(
+            "solution_selection", "highest_probability_feasible"
+        ))
+        if solution_selection == "best_observed_feasible":
+            chosen_xy_bits = np.asarray(chosen_xy["best_observed_bits"]).copy()
+        elif solution_selection == "highest_probability_feasible":
+            chosen_xy_bits = np.asarray(chosen_xy["bits"]).copy()
+        else:
+            raise ValueError(f"Unsupported solver solution_selection: {solution_selection}")
         for run in runs:
             primary_bits = np.asarray(run["bits"]).copy()
             run["fold"] = fold["fold"]
@@ -1781,6 +2152,32 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         portfolio_notional = constraints_cfg.get("portfolio_notional_vnd")
         adv_participation = constraints_cfg.get("max_adv_participation")
         selected_snapshot = snap.set_index("ticker").reindex(chosen)
+        equity_exposure, exposure_diagnostics = market_regime_exposure(
+            history, cfg.get("exposure", {}),
+        )
+        if bool(reduced["force_defensive_exposure"].iloc[0]):
+            defensive_floor = float(cfg.get("exposure", {}).get("minimum_exposure", 0.25))
+            equity_exposure = min(equity_exposure, defensive_floor)
+            exposure_diagnostics.update({
+                "regime": "insufficient_positive_candidates",
+                "equity_exposure": equity_exposure,
+                "cash_weight": 1.0 - equity_exposure,
+                "forced_by_expected_return_filter": True,
+            })
+        else:
+            exposure_diagnostics["forced_by_expected_return_filter"] = False
+        board_lot = int(constraints_cfg.get("board_lot", 1))
+        execution_prices = {
+            ticker: float(selected_snapshot.at[ticker, "close"]) for ticker in chosen
+        }
+        effective_lower = np.full(len(chosen), float(cfg["weights"]["lower"]))
+        if portfolio_notional and board_lot > 1 and equity_exposure > 0:
+            board_lot_sleeve_floor = np.asarray([
+                board_lot * execution_prices[ticker]
+                / (float(portfolio_notional) * equity_exposure) * 1.000001
+                for ticker in chosen
+            ])
+            effective_lower = np.maximum(effective_lower, board_lot_sleeve_floor)
         capacity_weights = {
             ticker: float(adv_participation * selected_snapshot.at[ticker, "adv_20d"] / portfolio_notional)
             for ticker in chosen
@@ -1822,6 +2219,9 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "long_only": float(cfg["weights"]["lower"]) >= 0,
             "full_investment": True,
             "configured_lower_bound": float(cfg["weights"]["lower"]),
+            "effective_lower_bounds_equity_sleeve": "|".join(
+                f"{value:.10g}" for value in effective_lower
+            ),
             "configured_upper_bound": float(cfg["weights"]["upper"]),
             "effective_upper_bounds": "|".join(f"{value:.10g}" for value in per_asset_upper),
             "portfolio_notional_vnd": portfolio_notional,
@@ -1838,17 +2238,27 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "remaining_turnover_limit": remaining_turnover,
         })
         weights = optimize_weights(
-            mu[idx], cov[np.ix_(idx, idx)], cfg["weights"]["lower"], per_asset_upper,
+            mu[idx], cov[np.ix_(idx, idx)], effective_lower, per_asset_upper,
             cfg["weights"]["risk_aversion"], previous_selected,
             cfg["weights"]["turnover_penalty"], turnover_limit=remaining_turnover,
             sectors=selected_sectors if apply_sector_cap else None,
             sector_cap=constraints_cfg.get("sector_cap") if apply_sector_cap else None,
         )
+        weights = weights * equity_exposure
+        exposure_rows.append({
+            "fold": fold["fold"], "decision_time": snapshot_date,
+            **exposure_diagnostics,
+            "selected_expected_return": float(mu[idx] @ weights),
+            "solver_solution_selection": solution_selection,
+        })
+        constraint_rows[-1].update({
+            "full_investment": bool(np.isclose(equity_exposure, 1.0)),
+            "cash_allowed_by_exposure_overlay": True,
+            "target_equity_exposure": equity_exposure,
+            "target_cash_weight": 1.0 - equity_exposure,
+            "solver_solution_selection": solution_selection,
+        })
         target = {ticker: float(w) for ticker, w in zip(chosen, weights)}
-        board_lot = int(constraints_cfg.get("board_lot", 1))
-        execution_prices = {
-            ticker: float(selected_snapshot.at[ticker, "close"]) for ticker in chosen
-        }
         scenario_notionals = constraints_cfg.get(
             "capacity_scenarios_vnd", [portfolio_notional] if portfolio_notional else []
         )
@@ -1944,7 +2354,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                 ).mean().iloc[-1]
                 pool = ewma_scores.nlargest(m).index.tolist()
             elif selector == "xgboost":
-                pool = snap.nlargest(m, "signal")["ticker"].tolist()
+                pool = snap.nlargest(m, "xgboost_signal")["ticker"].tolist()
             else:
                 pool = candidates
             variant_hist = history[history.ticker.isin(pool)].pivot(
@@ -1973,11 +2383,16 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                 variant_cov = LedoitWolf().fit(
                     variant_hist.to_numpy()
                 ).covariance_ * holding_horizon
-            if selector in {"xgboost", "adaptive"}:
+            if selector == "xgboost":
                 variant_mu = snap.set_index("ticker")["xgboost_expected_return"].reindex(
                     pool
                 ).to_numpy(dtype=float)
                 variant_return_source = "xgboost_calibrated"
+            elif selector == "adaptive":
+                variant_mu = snap.set_index("ticker")["optimization_expected_return"].reindex(
+                    pool
+                ).to_numpy(dtype=float)
+                variant_return_source = expected_return_source
             else:
                 variant_mu = variant_ewma_mu
                 variant_return_source = "ewma"
@@ -2071,15 +2486,19 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             benchmark_targets = {
                 "equal_weight_universe": np.ones(len(benchmark_tickers)) / len(benchmark_tickers),
                 "markowitz_mean_variance": optimize_weights(
-                    benchmark_mu, benchmark_cov, cfg["weights"]["lower"],
-                    cfg["weights"]["upper"], cfg["weights"]["risk_aversion"],
+                    benchmark_mu, benchmark_cov,
+                    float(cfg["weights"].get("benchmark_lower", 0.0)),
+                    float(cfg["weights"].get("benchmark_upper", cfg["weights"]["upper"])),
+                    cfg["weights"]["risk_aversion"],
                     aligned_previous_weights(
                         benchmark_tickers, previous_weights.get("markowitz_mean_variance", {})
                     ), cfg["weights"]["turnover_penalty"],
                 ),
                 "minimum_variance": optimize_weights(
-                    np.zeros(len(benchmark_tickers)), benchmark_cov, cfg["weights"]["lower"],
-                    cfg["weights"]["upper"], 1.0,
+                    np.zeros(len(benchmark_tickers)), benchmark_cov,
+                    float(cfg["weights"].get("benchmark_lower", 0.0)),
+                    float(cfg["weights"].get("benchmark_upper", cfg["weights"]["upper"])),
+                    1.0,
                     aligned_previous_weights(
                         benchmark_tickers, previous_weights.get("minimum_variance", {})
                     ), cfg["weights"]["turnover_penalty"],
@@ -2237,6 +2656,8 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     solvers = pd.DataFrame(solver_rows)
     weights_df, trades, returns = pd.DataFrame(weight_rows), pd.DataFrame(trade_rows), pd.DataFrame(return_rows)
     rankings.to_csv(out / "rankings.csv", index=False)
+    pd.DataFrame(signal_model_rows).to_csv(out / "signal_model_selection.csv", index=False)
+    pd.DataFrame(exposure_rows).to_csv(out / "exposure_by_fold.csv", index=False)
     selections.to_csv(out / "selected_universe.csv", index=False)
     solvers.to_csv(out / "solver_runs.csv", index=False)
     (out / "optimization_instances.json").write_text(
@@ -2305,7 +2726,9 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     selected_assets.to_csv(out / "selected_assets_by_fold.csv", index=False)
     latest_columns = [
         "fold", "decision_time", "ticker", "security_id", "company_name", "sector",
-        "signal", "xgboost_expected_return", "selected_by_solver", "target_weight",
+        "signal", "xgboost_signal", "technical_factor_signal",
+        "xgboost_expected_return", "optimization_expected_return",
+        "selected_by_solver", "target_weight",
         "previous_weight", "trade_weight", "estimated_cost", "liquidity_20d", "adv_20d",
         "adv_participation", "selection_reason",
     ]
@@ -2316,11 +2739,56 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             (selected_assets["fold"] == latest_fold) & selected_assets["selected_by_solver"]
         ].reindex(columns=latest_columns).sort_values("target_weight", ascending=False)
     latest.to_csv(out / "latest_selected_portfolio.csv", index=False)
+    latest_exposure = (
+        pd.DataFrame(exposure_rows).sort_values("fold").iloc[-1].to_dict()
+        if exposure_rows else {"equity_exposure": 1.0, "cash_weight": 0.0}
+    )
+    executed_equity_weight = float(latest["target_weight"].sum()) if not latest.empty else 0.0
+    executed_cash_weight = max(0.0, 1.0 - executed_equity_weight)
+    executed_expected_return = (
+        float((latest["target_weight"] * latest["optimization_expected_return"]).sum())
+        if not latest.empty else np.nan
+    )
+    (out / "latest_portfolio_summary.json").write_text(json.dumps({
+        "decision_time": str(latest_exposure.get("decision_time", "")),
+        "target_equity_exposure": float(latest_exposure.get("equity_exposure", 1.0)),
+        "target_cash_weight": float(latest_exposure.get("cash_weight", 0.0)),
+        "executed_equity_weight": executed_equity_weight,
+        "executed_cash_weight": executed_cash_weight,
+        "market_regime": latest_exposure.get("regime", "not_configured"),
+        "target_selected_expected_return": float(latest_exposure.get(
+            "selected_expected_return", np.nan
+        )),
+        "executed_selected_expected_return": executed_expected_return,
+        "solver_solution_selection": latest_exposure.get(
+            "solver_solution_selection", "highest_probability_feasible"
+        ),
+        "tickers": latest.get("ticker", pd.Series(dtype=str)).astype(str).tolist(),
+        "weights": {
+            str(row.ticker): float(row.target_weight) for row in latest.itertuples()
+        },
+    }, indent=2), encoding="utf-8")
     latest_md = ["# Latest selected portfolio", ""]
     if latest.empty:
         latest_md.append("No completed research portfolio.")
     else:
-        view = latest[["ticker", "company_name", "sector", "target_weight", "signal", "estimated_cost"]].copy()
+        latest_md.extend([
+            f"- Target equity exposure before board-lot rounding: "
+            f"{float(latest_exposure.get('equity_exposure', 1.0)):.4f}",
+            f"- Target cash weight before board-lot rounding: "
+            f"{float(latest_exposure.get('cash_weight', 0.0)):.4f}",
+            f"- Executed equity weight: {executed_equity_weight:.4f}",
+            f"- Executed cash weight after board-lot rounding: {executed_cash_weight:.4f}",
+            f"- Market regime: {latest_exposure.get('regime', 'not_configured')}",
+            f"- Target ex-ante selected-portfolio return: "
+            f"{float(latest_exposure.get('selected_expected_return', np.nan)):.6f}",
+            f"- Executed ex-ante selected-portfolio return: {executed_expected_return:.6f}",
+            "",
+        ])
+        view = latest[[
+            "ticker", "company_name", "sector", "target_weight", "signal",
+            "optimization_expected_return", "estimated_cost"
+        ]].copy()
         latest_md.extend([
             "| " + " | ".join(view.columns) + " |",
             "| " + " | ".join(["---"] * len(view.columns)) + " |",
@@ -2599,9 +3067,23 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             ["git", "rev-parse", "HEAD"], cwd=config_path.parent,
             text=True, stderr=subprocess.DEVNULL,
         ).strip()
+        git_status = subprocess.check_output(
+            ["git", "status", "--porcelain=v1"], cwd=config_path.parent,
+            text=True, stderr=subprocess.DEVNULL,
+        ).strip().splitlines()
     except (OSError, subprocess.CalledProcessError):
         git_commit = "unknown"
-    env = f"python={sys.version}\nplatform={platform.platform()}\ngit_commit={git_commit}\n"
+        git_status = ["unavailable"]
+    source_hashes = {
+        "src/research.py": sha256_file(Path(__file__)),
+        "src/cli.py": sha256_file(Path(__file__).with_name("cli.py")),
+        "config": sha256_file(config_path),
+    }
+    env = (
+        f"python={sys.version}\nplatform={platform.platform()}\n"
+        f"git_commit={git_commit}\ngit_dirty={bool(git_status)}\n"
+        f"source_sha256={json.dumps(source_hashes, sort_keys=True)}\n"
+    )
     (out / "environment.txt").write_text(env, encoding="utf-8")
     provenance = {
         "price_sources": prices.groupby(
@@ -2634,7 +3116,8 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         "created_at": datetime.now(timezone.utc).isoformat(), "config_hash": cfg_hash,
         "dataset_hash": sha256_file(paths.normalized / "prices.parquet"),
         "universe_hash": sha256_file(paths.curated / "universe_monthly.parquet"),
-        "git_commit": git_commit,
+        "git_commit": git_commit, "git_dirty": bool(git_status),
+        "git_status_porcelain": git_status, "source_sha256": source_hashes,
         "adjustment_version": adjustment_metadata.get(
             "adjustment_version", cfg.get("data", {}).get("adjustment_version", "unknown")
         ),
