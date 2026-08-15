@@ -6,8 +6,8 @@
 | Dataset hash (candidate) | `dd24d243f3e00d6516962326474ff243cdc200e9667dd1b4a7dd5cd3ed664b82` |
 | Adjustment version | `corporate-actions-v2` |
 | Config hash | `not_created_no_confirmatory_run` |
-| Git commit tại thời điểm báo cáo | `c01b8eb8a1aae5023ea68248a4fa79675429edfc` |
-| Created at | `2026-08-15T06:04:32.683165+00:00` |
+| Git commit tại thời điểm báo cáo | `29c9d216e4c5f0539fd7fc5a8d26d63d1e4510b8` |
+| Created at | `2026-08-15T06:06:22.718266+00:00` |
 | Mode | `research_v2_fail_closed` |
 | Label | `BLOCKED — DIAGNOSTIC ARTIFACT, NOT CONFIRMATORY RESEARCH` |
 | Folds | `0 (không huấn luyện/backtest khi gate chưa đạt)` |
