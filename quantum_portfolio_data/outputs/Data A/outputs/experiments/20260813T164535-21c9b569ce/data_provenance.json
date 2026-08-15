@@ -1,0 +1,58 @@
+{
+  "price_sources": [
+    {
+      "source": "cafef_public_history",
+      "source_url": "https://cafef.vn/du-lieu/lich-su-giao-dich-gtn-1.chn",
+      "data_class": "real",
+      "records": 537
+    },
+    {
+      "source": "cafef_public_history",
+      "source_url": "https://cafef.vn/du-lieu/lich-su-giao-dich-pme-1.chn",
+      "data_class": "real",
+      "records": 478
+    },
+    {
+      "source": "cafef_public_history",
+      "source_url": "https://cafef.vn/du-lieu/lich-su-giao-dich-tac-1.chn",
+      "data_class": "real",
+      "records": 586
+    },
+    {
+      "source": "cafef_public_history",
+      "source_url": "https://cafef.vn/du-lieu/lich-su-giao-dich-vis-1.chn",
+      "data_class": "real",
+      "records": 567
+    },
+    {
+      "source": "fdr_segment_scaled_by_cafef_crosscheck",
+      "source_url": "https://cafef.vn/du-lieu/lich-su-giao-dich-hose/all-1.chn",
+      "data_class": "real",
+      "records": 24882
+    },
+    {
+      "source": "fdr_window_replaced_by_cafef_crosscheck",
+      "source_url": "https://cafef.vn/du-lieu/lich-su-giao-dich-hose/all-1.chn",
+      "data_class": "real",
+      "records": 2263
+    },
+    {
+      "source": "finance_datareader_yahoo_hose",
+      "source_url": "https://github.com/FinanceData/FinanceDataReader",
+      "data_class": "real",
+      "records": 527023
+    },
+    {
+      "source": "vnstock_kbs",
+      "source_url": "https://github.com/thinh-vu/vnstock",
+      "data_class": "real",
+      "records": 9135
+    }
+  ],
+  "price_dataset_sha256": "6e046b509fef366681866328d5bd99ec63541c2de8597f0e7bebc101813baa05",
+  "universe_dataset_sha256": "3416677c958b2960d2a059cb07dbd2e860b07fdbb21eae78c33be67d97e635d9",
+  "source_manifest": "D:\\NCKH 2026 - Th\u1ea7y D\u00e3\\quantum_portfolio_data\\outputs\\complete_case_workspaces\\20260813T094511Z-b8b45e76c7\\outputs\\raw\\manifest.json",
+  "security_master_sha256": "cf9799c3ad4ac37a56295a2e873869b35ba697034a859125d58aee70f2fa626d",
+  "corporate_actions_sha256": "34eb840bb87a63c2318db06b096137a52c3b03fc7e56c9bf58b5ff120ba262a9",
+  "benchmark_sha256": null
+}

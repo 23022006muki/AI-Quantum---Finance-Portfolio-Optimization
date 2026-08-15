@@ -1,0 +1,15 @@
+# Local credentials and authenticated request captures
+.env
+.env.*
+!.env.example
+secrets/
+*.har
+*.cookie
+*cookies*.txt
+*auth*headers*.json
+
+# Generated and local runtime data
+outputs/
+__pycache__/
+.pytest_cache/
+*.pyc

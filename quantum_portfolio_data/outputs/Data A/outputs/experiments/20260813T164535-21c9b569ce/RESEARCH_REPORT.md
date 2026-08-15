@@ -1,0 +1,225 @@
+# AI-Quantum Portfolio Exploratory Complete-Case Report
+
+> **EXPLORATORY ONLY - COMPLETE-CASE REAL HOSE PANEL; NOT CONFIRMATORY RESEARCH**
+
+## Scope
+
+This run uses real HOSE price observations retained by an explicit complete-case rule. It verifies the empirical pipeline on usable data, but it is not confirmatory evidence for the full-HOSE study because the adjustment contract and full point-in-time coverage are not established.
+
+## Data validation
+
+- Quality: `pass`
+- Leakage audit: `pass_for_exploratory_with_declared_limitations`
+- Records: 565471
+- Tickers: 394
+- Requested range: 2020-01-01 to 2025-12-31
+- Actual data range: 2020-01-02 to 2025-12-31
+- Actual OOS range: 2022-05-02 to 2025-12-30
+- Folds completed/requested: 12/12
+
+## Predictive ranking
+
+- Mean fold rank IC: 0.079541
+
+## Solver comparison
+
+| method | energy_mean | feasibility_rate | optimality_gap_mean | runtime_seconds | runs |
+| --- | --- | --- | --- | --- | --- |
+| exact | -0.00411258 | 1 | 0 | 0 | 12 |
+| penalty_qaoa_ideal_statevector | -0.00317134 | 0.646615 | 0.0626321 | 0.338445 | 60 |
+| penalty_stochastic_baseline | -0.00411258 | 0.272461 | 0 | 0.0147668 | 12 |
+| simulated_annealing | -0.00411258 | 1 | 0 | 0.0401192 | 60 |
+| xy_qaoa_dicke_ideal_statevector | -0.00305447 | 1 | 0.0892661 | 0.203452 | 60 |
+
+## Portfolio metrics
+
+| cumulative_return | annualized_return | annualized_volatility | sharpe | sortino | max_drawdown | calmar | positive_day_ratio | observations | strategy | sharpe_ci_low | sharpe_ci_high |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| -0.208277 | -0.201875 | 0.317586 | -0.643321 | -0.839081 | -0.377319 | -0.535024 | 0.490421 | 261 | adaptive_exact | -2.6399 | 0.937542 |
+| -0.221269 | -0.214524 | 0.311417 | -0.713524 | -0.890753 | -0.393877 | -0.544647 | 0.494253 | 261 | adaptive_penalty_qaoa | -2.84047 | 0.924219 |
+| -0.208277 | -0.201875 | 0.317586 | -0.643321 | -0.839081 | -0.377319 | -0.535024 | 0.490421 | 261 | adaptive_simulated_annealing | -2.6399 | 0.937542 |
+| -0.197166 | -0.191064 | 0.309595 | -0.624626 | -0.815792 | -0.364643 | -0.523975 | 0.471264 | 261 | adaptive_xy_qaoa | -2.5897 | 0.96595 |
+| -0.145912 | -0.141254 | 0.308764 | -0.433864 | -0.646448 | -0.316468 | -0.446346 | 0.448276 | 261 | equal_weight_candidates | -2.53017 | 1.17316 |
+| -0.117978 | -0.114152 | 0.22554 | -0.554823 | -0.63848 | -0.254316 | -0.448857 | 0.54023 | 261 | equal_weight_universe | -2.13844 | 1.4708 |
+| -0.443436 | -0.432075 | 0.454317 | -1.08189 | -1.48163 | -0.560748 | -0.770534 | 0.436782 | 261 | ewma_topk_exact | -3.225 | 0.997141 |
+| -0.206929 | -0.200563 | 0.307552 | -0.669293 | -0.855124 | -0.349978 | -0.573075 | 0.467433 | 261 | full_pipeline_xy_qaoa | -2.69574 | 0.886927 |
+| 0.103207 | 0.0994773 | 0.413218 | 0.364789 | 0.211468 | -0.431862 | 0.230345 | 0.498084 | 261 | liquidity_topk_exact | -1.59394 | 2.26261 |
+| -0.363347 | -0.353357 | 0.470297 | -0.75407 | -1.19114 | -0.548095 | -0.6447 | 0.436782 | 261 | markowitz_mean_variance | -3.07448 | 1.16201 |
+| -0.0149121 | -0.0144016 | 0.116862 | -0.318743 | -0.406409 | -0.122569 | -0.117498 | 0.509579 | 261 | minimum_variance | -2.33466 | 1.34023 |
+| -0.221551 | -0.214799 | 0.288544 | -0.795334 | -1.00224 | -0.36207 | -0.593254 | 0.452107 | 261 | xgboost_penalty_qaoa | -2.48798 | 0.806867 |
+| -0.290925 | -0.282469 | 0.309685 | -1.01087 | -1.17843 | -0.441407 | -0.639929 | 0.455939 | 261 | xgboost_topk_exact | -2.68224 | 0.560174 |
+| -0.286416 | -0.278064 | 0.309236 | -0.993016 | -1.16097 | -0.437855 | -0.635059 | 0.448276 | 261 | xgboost_xy_qaoa | -2.62812 | 0.654529 |
+
+## Ablation study
+
+| configuration | selector | solver | objective_mean | optimality_gap_mean | feasibility_rate | folds |
+| --- | --- | --- | --- | --- | --- | --- |
+| adaptive_exact | adaptive | exact | -0.00411258 | 0 | 1 | 12 |
+| adaptive_penalty_qaoa | adaptive | penalty_qaoa_ideal_statevector | -0.003417 | 0.0531429 | 0.489624 | 12 |
+| adaptive_simulated_annealing | adaptive | simulated_annealing | -0.00411258 | 0 | 1 | 12 |
+| adaptive_xy_qaoa | adaptive | xy_qaoa_dicke_ideal_statevector | -0.00164853 | 0.389211 | 1 | 12 |
+| ewma_topk_exact | ewma | exact | -0.289935 | 0 | 1 | 12 |
+| liquidity_topk_exact | liquidity | exact | -0.0549745 | 0 | 1 | 12 |
+| xgboost_penalty_qaoa | xgboost | penalty_qaoa_ideal_statevector | -0.00325936 | 0.118309 | 0.315633 | 12 |
+| xgboost_topk_exact | xgboost | exact | -0.00681954 | 0 | 1 | 12 |
+| xgboost_xy_qaoa | xgboost | xy_qaoa_dicke_ideal_statevector | -0.00615301 | 0.00932125 | 1 | 12 |
+
+## Robustness and sensitivity
+
+| depth_p | shots | cardinality | uniform_probability_noise_proxy | transaction_cost_bps | optimality_gap | feasibility_rate | runtime_seconds |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 256 | 3 | 0 | 0 | 0.00629407 | 0.935872 | 0.0375894 |
+| 1 | 256 | 3 | 0 | 10 | 0.00629407 | 0.935872 | 0.0375894 |
+| 1 | 256 | 3 | 0 | 25 | 0.00629407 | 0.935872 | 0.0375894 |
+| 1 | 256 | 4 | 0 | 0 | 0.262571 | 0.932617 | 0.0449855 |
+| 1 | 256 | 4 | 0 | 10 | 0.262571 | 0.932617 | 0.0449855 |
+| 1 | 256 | 4 | 0 | 25 | 0.262571 | 0.932617 | 0.0449855 |
+| 1 | 2048 | 3 | 0 | 0 | 0.00112474 | 0.930908 | 0.0968115 |
+| 1 | 2048 | 3 | 0 | 10 | 0.00112474 | 0.930908 | 0.0968115 |
+| 1 | 2048 | 3 | 0 | 25 | 0.00112474 | 0.930908 | 0.0968115 |
+| 1 | 2048 | 4 | 0 | 0 | 0.0233877 | 0.931559 | 0.0899888 |
+| 1 | 2048 | 4 | 0 | 10 | 0.0233877 | 0.931559 | 0.0899888 |
+| 1 | 2048 | 4 | 0 | 25 | 0.0233877 | 0.931559 | 0.0899888 |
+| 2 | 256 | 3 | 0 | 0 | 0.0819601 | 0.936198 | 0.0375414 |
+| 2 | 256 | 3 | 0 | 10 | 0.0819601 | 0.936198 | 0.0375414 |
+| 2 | 256 | 3 | 0 | 25 | 0.0819601 | 0.936198 | 0.0375414 |
+| 2 | 256 | 4 | 0 | 0 | 2.73835 | 0.932617 | 0.0338819 |
+| 2 | 256 | 4 | 0 | 10 | 2.73835 | 0.932617 | 0.0338819 |
+| 2 | 256 | 4 | 0 | 25 | 2.73835 | 0.932617 | 0.0338819 |
+| 2 | 2048 | 3 | 0 | 0 | 0.0814852 | 0.930705 | 0.0822524 |
+| 2 | 2048 | 3 | 0 | 10 | 0.0814852 | 0.930705 | 0.0822524 |
+| 2 | 2048 | 3 | 0 | 25 | 0.0814852 | 0.930705 | 0.0822524 |
+| 2 | 2048 | 4 | 0 | 0 | 2.71005 | 0.931641 | 0.08677 |
+| 2 | 2048 | 4 | 0 | 10 | 2.03335 | 0.96582 | 0.0864957 |
+| 2 | 2048 | 4 | 0 | 25 | 2.71005 | 0.931641 | 0.08677 |
+
+## Statistical comparison
+
+| mean_difference | ci_low | ci_high | p_value | effect_size_daily | bootstrap_centered_under_null | test | hypothesis | p_value_holm | conclusion | direction |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| -0.000320265 | -0.00167413 | 0.000755335 | 0.632 | -0.000320265 | True | full_pipeline_xy_qaoa_vs_equal_weight_universe | H5 | 1 | not_significant | nan |
+| 0.000590457 | -0.00262414 | 0.00460357 | 0.722 | 0.000590457 | True | full_pipeline_xy_qaoa_vs_markowitz_mean_variance | H5 | 1 | not_significant | nan |
+| -0.000669019 | -0.00267907 | 0.000893687 | 0.472 | -0.000669019 | True | full_pipeline_xy_qaoa_vs_minimum_variance | H5 | 1 | not_significant | nan |
+| -0.001415 | -0.00395117 | 0.000908693 | 0.258 | -0.001415 | True | full_pipeline_xy_qaoa_vs_liquidity_topk_exact | H5 | 1 | not_significant | nan |
+| 0.00113364 | -0.00193709 | 0.0048231 | 0.454 | 0.00113364 | True | full_pipeline_xy_qaoa_vs_ewma_topk_exact | H5 | 1 | not_significant | nan |
+| -6.07895e-06 | -0.000566612 | 0.000512612 | 0.986 | -6.07895e-06 | True | full_pipeline_xy_qaoa_vs_adaptive_exact | H5 | 1 | not_significant | nan |
+| -6.07895e-06 | -0.000566612 | 0.000512612 | 0.986 | -6.07895e-06 | True | full_pipeline_xy_qaoa_vs_adaptive_simulated_annealing | H5 | 1 | not_significant | nan |
+| 6.49261e-05 | -0.00063563 | 0.000769718 | 0.864 | 6.49261e-05 | True | full_pipeline_xy_qaoa_vs_adaptive_penalty_qaoa | H5 | 1 | not_significant | nan |
+| 0.103558 | 0.0104604 | 0.241087 | 0.094 | 0.103558 | True | xgboost_rank_ic_vs_ewma_rank_ic | H1 | 1 | not_significant | nan |
+| 0.00524249 | -0.0139945 | 0.0173921 | 0.584 | 0.00524249 | True | adaptive_universe_forward_return_vs_fixed_topm | H2 | 1 | not_significant | higher_is_better |
+| -0.0434046 | -0.0838832 | -0.0106505 | 0.01 | -0.0434046 | True | adaptive_universe_diversification_vs_fixed_topm | H2 | 0.12 | not_significant | higher_is_better_after_reversal |
+| 0.353385 | 0.350398 | 0.356365 | 0 | 0.353385 | True | xy_feasibility_vs_penalty_qaoa | H3 | 0 | significant | nan |
+| -0.026634 | -0.0731122 | 0.00113366 | 0.168 | -0.026634 | True | xy_optimality_gap_vs_penalty_qaoa | H4 | 1 | not_significant | higher_is_better_after_reversal |
+
+## Market-regime description
+
+| cumulative_return | annualized_return | annualized_volatility | sharpe | sortino | max_drawdown | calmar | positive_day_ratio | observations | strategy | regime |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| -0.207276 | -0.867137 | 0.546373 | -3.46691 | -2.53314 | -0.214047 | -4.05116 | 0.482759 | 29 | adaptive_exact | bear_high_vol |
+| -0.0355943 | -0.999892 |  |  |  | 0 |  | 0 | 1 | adaptive_exact | bear_low_vol |
+| 0.0354411 | 17.6438 | 0.077996 | 37.3738 |  | 0 |  | 1 | 3 | adaptive_exact | bull_high_vol |
+| 0.0595804 | 0.192093 | 0.172107 | 0.934395 | 1.30468 | -0.086 | 2.23364 | 0.53012 | 83 | adaptive_exact | bull_low_vol |
+| 0.210578 | 3.12213 | 0.333512 | 4.32909 | 19.8996 | -0.0523106 | 59.6844 | 0.5 | 34 | adaptive_exact | sideway_high_vol |
+| -0.220278 | -0.431574 | 0.309551 | -1.76295 | -1.67 | -0.280905 | -1.53637 | 0.45045 | 111 | adaptive_exact | sideway_low_vol |
+| -0.200594 | -0.857084 | 0.522749 | -3.50852 | -2.33292 | -0.214047 | -4.00419 | 0.448276 | 29 | adaptive_penalty_qaoa | bear_high_vol |
+| -0.0345487 | -0.999858 |  |  |  | 0 |  | 0 | 1 | adaptive_penalty_qaoa | bear_low_vol |
+| 0.0347145 | 16.5762 | 0.167793 | 17.0605 |  | 0 |  | 1 | 3 | adaptive_penalty_qaoa | bull_high_vol |
+| 0.04433 | 0.14076 | 0.171804 | 0.679391 | 0.886888 | -0.097537 | 1.44314 | 0.53012 | 83 | adaptive_penalty_qaoa | bull_low_vol |
+| 0.272657 | 4.97167 | 0.315851 | 5.73432 | 36.4756 | -0.044145 | 112.622 | 0.5 | 34 | adaptive_penalty_qaoa | sideway_high_vol |
+| -0.266297 | -0.504898 | 0.307558 | -2.22407 | -1.89735 | -0.309301 | -1.63238 | 0.468468 | 111 | adaptive_penalty_qaoa | sideway_low_vol |
+| -0.207276 | -0.867137 | 0.546373 | -3.46691 | -2.53314 | -0.214047 | -4.05116 | 0.482759 | 29 | adaptive_simulated_annealing | bear_high_vol |
+| -0.0355943 | -0.999892 |  |  |  | 0 |  | 0 | 1 | adaptive_simulated_annealing | bear_low_vol |
+| 0.0354411 | 17.6438 | 0.077996 | 37.3738 |  | 0 |  | 1 | 3 | adaptive_simulated_annealing | bull_high_vol |
+| 0.0595804 | 0.192093 | 0.172107 | 0.934395 | 1.30468 | -0.086 | 2.23364 | 0.53012 | 83 | adaptive_simulated_annealing | bull_low_vol |
+| 0.210578 | 3.12213 | 0.333512 | 4.32909 | 19.8996 | -0.0523106 | 59.6844 | 0.5 | 34 | adaptive_simulated_annealing | sideway_high_vol |
+| -0.220278 | -0.431574 | 0.309551 | -1.76295 | -1.67 | -0.280905 | -1.53637 | 0.45045 | 111 | adaptive_simulated_annealing | sideway_low_vol |
+| -0.200594 | -0.857084 | 0.522749 | -3.50852 | -2.33292 | -0.214047 | -4.00419 | 0.448276 | 29 | adaptive_xy_qaoa | bear_high_vol |
+| -0.0355943 | -0.999892 |  |  |  | 0 |  | 0 | 1 | adaptive_xy_qaoa | bear_low_vol |
+| 0.0347145 | 16.5762 | 0.167793 | 17.0605 |  | 0 |  | 1 | 3 | adaptive_xy_qaoa | bull_high_vol |
+| -0.00548232 | -0.0165524 | 0.167617 | -0.193311 | -0.397141 | -0.102189 | -0.161978 | 0.481928 | 83 | adaptive_xy_qaoa | bull_low_vol |
+| 0.272657 | 4.97167 | 0.315851 | 5.73432 | 36.4756 | -0.044145 | 112.622 | 0.5 | 34 | adaptive_xy_qaoa | sideway_high_vol |
+| -0.204841 | -0.405703 | 0.305934 | -1.6421 | -1.55517 | -0.266266 | -1.52368 | 0.45045 | 111 | adaptive_xy_qaoa | sideway_low_vol |
+| -0.182966 | -0.827258 | 0.521608 | -3.15644 | -2.09543 | -0.219974 | -3.7607 | 0.448276 | 29 | equal_weight_candidates | bear_high_vol |
+| -0.0476063 | -0.999995 |  |  |  | 0 |  | 0 | 1 | equal_weight_candidates | bear_low_vol |
+| 0.017375 | 3.25019 | 0.171295 | 8.35563 |  | -0.00429558 | 756.637 | 0.666667 | 3 | equal_weight_candidates | bull_high_vol |
+| 0.108882 | 0.368604 | 0.193567 | 1.56539 | 2.19116 | -0.0935981 | 3.93816 | 0.481928 | 83 | equal_weight_candidates | bull_low_vol |
+| 0.174864 | 2.30165 | 0.296445 | 4.07978 | 14.8101 | -0.0517631 | 44.4651 | 0.441176 | 34 | equal_weight_candidates | sideway_high_vol |
+| -0.171882 | -0.348302 | 0.300663 | -1.371 | -1.53298 | -0.244894 | -1.42225 | 0.423423 | 111 | equal_weight_candidates | sideway_low_vol |
+| -0.177735 | -0.817409 | 0.396839 | -4.15046 | -2.43809 | -0.171504 | -4.76613 | 0.551724 | 29 | equal_weight_universe | bear_high_vol |
+| -0.0251766 | -0.998381 |  |  |  | 0 |  | 0 | 1 | equal_weight_universe | bear_low_vol |
+| 0.0320875 | 13.1967 | 0.0518642 | 50.8703 |  | 0 |  | 1 | 3 | equal_weight_universe | bull_high_vol |
+| 0.145834 | 0.511828 | 0.14088 | 2.79629 | 3.87542 | -0.0536465 | 9.54076 | 0.614458 | 83 | equal_weight_universe | bull_low_vol |
+| 0.182604 | 2.46632 | 0.24052 | 5.17225 | 20.0448 | -0.0369818 | 66.6902 | 0.558824 | 34 | equal_weight_universe | sideway_high_vol |
+| -0.213201 | -0.419793 | 0.198621 | -2.78636 | -2.13245 | -0.206663 | -2.03129 | 0.468468 | 111 | equal_weight_universe | sideway_low_vol |
+| -0.0984531 | -0.593684 | 0.575371 | -1.33316 | -1.63842 | -0.177205 | -3.35026 | 0.586207 | 29 | ewma_topk_exact | bear_high_vol |
+| -0.0668556 | -1 |  |  |  | 0 |  | 0 | 1 | ewma_topk_exact | bear_low_vol |
+| 0.028785 | 9.84601 | 0.220447 | 10.8038 |  | -0.00644906 | 1526.74 | 0.666667 | 3 | ewma_topk_exact | bull_high_vol |
+| -0.0151135 | -0.0451844 | 0.344254 | -0.0497243 | -0.356408 | -0.197026 | -0.229332 | 0.493976 | 83 | ewma_topk_exact | bull_low_vol |
+| 0.298946 | 5.94882 | 0.413022 | 4.83775 | 22.2867 | -0.0964285 | 61.6915 | 0.470588 | 34 | ewma_topk_exact | sideway_high_vol |
+| -0.497338 | -0.790195 | 0.490355 | -2.99147 | -2.50247 | -0.513566 | -1.53864 | 0.342342 | 111 | ewma_topk_exact | sideway_low_vol |
+| -0.19085 | -0.841218 | 0.542557 | -3.16899 | -2.34295 | -0.214047 | -3.93007 | 0.482759 | 29 | full_pipeline_xy_qaoa | bear_high_vol |
+| -0.0355943 | -0.999892 |  |  |  | 0 |  | 0 | 1 | full_pipeline_xy_qaoa | bear_low_vol |
+| 0.0354411 | 17.6438 | 0.077996 | 37.3738 |  | 0 |  | 1 | 3 | full_pipeline_xy_qaoa | bull_high_vol |
+| 0.0552114 | 0.177232 | 0.168747 | 0.875245 | 1.15602 | -0.0715823 | 2.47592 | 0.518072 | 83 | full_pipeline_xy_qaoa | bull_low_vol |
+| 0.156434 | 1.93655 | 0.326802 | 3.36823 | 10.2916 | -0.0523106 | 37.0201 | 0.411765 | 34 | full_pipeline_xy_qaoa | sideway_high_vol |
+| -0.195664 | -0.390017 | 0.293691 | -1.63477 | -1.61539 | -0.257665 | -1.51366 | 0.432432 | 111 | full_pipeline_xy_qaoa | sideway_low_vol |
+| -0.130483 | -0.703279 | 0.544132 | -2.01561 | -1.72376 | -0.240394 | -2.92553 | 0.482759 | 29 | liquidity_topk_exact | bear_high_vol |
+| -0.0282256 | -0.999265 |  |  |  | 0 |  | 0 | 1 | liquidity_topk_exact | bear_low_vol |
+| -0.0085898 | -0.515511 | 0.218352 | -3.376 |  | -0.0186892 | -27.5834 | 0.666667 | 3 | liquidity_topk_exact | bull_high_vol |
+| 0.352886 | 1.50339 | 0.3851 | 2.50264 | 4.53771 | -0.178622 | 8.41657 | 0.542169 | 83 | liquidity_topk_exact | bull_low_vol |
+| 0.173173 | 2.2666 | 0.356767 | 3.41373 | 10.7479 | -0.102201 | 22.1778 | 0.441176 | 34 | liquidity_topk_exact | sideway_high_vol |
+| -0.17027 | -0.345417 | 0.412955 | -0.892254 | -1.15818 | -0.384499 | -0.898356 | 0.486486 | 111 | liquidity_topk_exact | sideway_low_vol |
+| -0.191695 | -0.842653 | 0.609732 | -2.77342 | -2.29051 | -0.209765 | -4.01714 | 0.482759 | 29 | markowitz_mean_variance | bear_high_vol |
+| -0.0670058 | -1 |  |  |  | 0 |  | 0 | 1 | markowitz_mean_variance | bear_low_vol |
+| 0.0281134 | 9.26708 | 0.108906 | 21.2486 |  | 0 |  | 1 | 3 | markowitz_mean_variance | bull_high_vol |
+| -0.0279652 | -0.0825124 | 0.339279 | -0.172745 | -0.526586 | -0.217666 | -0.379078 | 0.493976 | 83 | markowitz_mean_variance | bull_low_vol |
+| 0.551809 | 24.9685 | 0.436242 | 7.6533 | 137.882 | -0.0652127 | 382.879 | 0.411765 | 34 | markowitz_mean_variance | sideway_high_vol |
+| -0.455638 | -0.748583 | 0.502071 | -2.55156 | -2.28231 | -0.471088 | -1.58905 | 0.378378 | 111 | markowitz_mean_variance | sideway_low_vol |
+| -0.0727581 | -0.481297 | 0.180872 | -3.69944 | -2.8965 | -0.0723225 | -6.65488 | 0.482759 | 29 | minimum_variance | bear_high_vol |
+| -0.0097244 | -0.914782 |  |  |  | 0 |  | 0 | 1 | minimum_variance | bear_low_vol |
+| 0.0104444 | 1.39355 | 0.0638112 | 13.2592 |  | -0.000850582 | 1638.35 | 0.666667 | 3 | minimum_variance | bull_high_vol |
+| -0.00809703 | -0.0243817 | 0.0797423 | -0.640788 | -0.817894 | -0.0408621 | -0.596682 | 0.493976 | 83 | minimum_variance | bull_low_vol |
+| 0.0710405 | 0.663084 | 0.156731 | 3.134 | 15.6934 | -0.0210093 | 31.5614 | 0.5 | 34 | minimum_variance | sideway_high_vol |
+| -0.000602168 | -0.00136656 | 0.103478 | -0.246821 | -0.276118 | -0.0690325 | -0.0197959 | 0.531532 | 111 | minimum_variance | sideway_low_vol |
+| -0.18394 | -0.82904 | 0.532698 | -3.1001 | -2.63709 | -0.210571 | -3.93711 | 0.517241 | 29 | xgboost_penalty_qaoa | bear_high_vol |
+| -0.0147644 | -0.976444 |  |  |  | 0 |  | 0 | 1 | xgboost_penalty_qaoa | bear_low_vol |
+| 0.0354411 | 17.6438 | 0.077996 | 37.3738 |  | 0 |  | 1 | 3 | xgboost_penalty_qaoa | bull_high_vol |
+| -0.0342488 | -0.100402 | 0.168603 | -0.719435 | -1.09376 | -0.0835519 | -1.20167 | 0.445783 | 83 | xgboost_penalty_qaoa | bull_low_vol |
+| 0.124603 | 1.38778 | 0.291015 | 3.0332 | 7.85611 | -0.0523106 | 26.5296 | 0.411765 | 34 | xgboost_penalty_qaoa | sideway_high_vol |
+| -0.13905 | -0.28816 | 0.269486 | -1.23507 | -1.3708 | -0.244289 | -1.17959 | 0.441441 | 111 | xgboost_penalty_qaoa | sideway_low_vol |
+| -0.272532 | -0.937019 | 0.531407 | -4.96987 | -3.00412 | -0.253289 | -3.69941 | 0.448276 | 29 | xgboost_topk_exact | bear_high_vol |
+| -0.0147719 | -0.976489 |  |  |  | 0 |  | 0 | 1 | xgboost_topk_exact | bear_low_vol |
+| 0.0354411 | 17.6438 | 0.077996 | 37.3738 |  | 0 |  | 1 | 3 | xgboost_topk_exact | bull_high_vol |
+| -0.0277421 | -0.0818728 | 0.167734 | -0.602562 | -0.98934 | -0.0967562 | -0.846177 | 0.46988 | 83 | xgboost_topk_exact | bull_low_vol |
+| 0.203343 | 2.94301 | 0.317636 | 4.389 | 21.9766 | -0.0523106 | 56.2602 | 0.441176 | 34 | xgboost_topk_exact | sideway_high_vol |
+| -0.183333 | -0.368579 | 0.304055 | -1.45541 | -1.47692 | -0.263702 | -1.39771 | 0.441441 | 111 | xgboost_topk_exact | sideway_low_vol |
+| -0.272545 | -0.937029 | 0.531417 | -4.97005 | -3.0041 | -0.253302 | -3.69926 | 0.448276 | 29 | xgboost_xy_qaoa | bear_high_vol |
+| -0.0147719 | -0.976489 |  |  |  | 0 |  | 0 | 1 | xgboost_xy_qaoa | bear_low_vol |
+| 0.0354411 | 17.6438 | 0.077996 | 37.3738 |  | 0 |  | 1 | 3 | xgboost_xy_qaoa | bull_high_vol |
+| -0.0279877 | -0.0825768 | 0.169069 | -0.601012 | -0.976341 | -0.106274 | -0.77702 | 0.457831 | 83 | xgboost_xy_qaoa | bull_low_vol |
+| 0.210241 | 3.11363 | 0.315649 | 4.54965 | 23.1281 | -0.0523106 | 59.522 | 0.441176 | 34 | xgboost_xy_qaoa | sideway_high_vol |
+| -0.182602 | -0.367297 | 0.30275 | -1.4563 | -1.47199 | -0.265646 | -1.38266 | 0.432432 | 111 | xgboost_xy_qaoa | sideway_low_vol |
+
+## H1–H6 interpretation
+
+- **H1: exploratory-only.** Mean XGBoost walk-forward Rank IC=0.0795; paired XGBoost–EWMA test rows=1.
+- **H2: exploratory-only.** AUR diagnostics report signal, liquidity, risk, correlation, selected M and candidate turnover; causal superiority is not inferred.
+- **H3: exploratory-only.** Fixed-weight XY simulation preserves cardinality by construction; penalty feasibility is measured from samples.
+- **H4: exploratory-only.** Primary-solution and best-observed gaps are separated against the exact small-instance oracle.
+- **H5: exploratory-only.** Net buy-and-hold performance uses common costs; paired benchmark comparisons=8.
+- **H6: exploratory-only.** Sensitivity reruns solver/accounting on the declared grid and representative folds; inference is conditional on that grid.
+
+## Limitations
+
+- Securities are retained using full-period availability, which can create coverage or survivorship selection bias.
+- Price completeness does not certify corporate-action adjustment; abnormal economic returns may remain even after row-level quality checks.
+- No verified total-return benchmark is used, and optional point-in-time fundamentals, macroeconomic variables and foreign flow are excluded.
+- Results are exploratory and must not be described as confirmatory evidence for all HOSE securities.
+- The XY-QAOA implementation is an ideal fixed-Hamming-weight statevector simulator, not quantum hardware.
+- Statistical results are conditional on the retained sample, period, costs and tested parameter grid.
+
+## Reproduce
+
+```powershell
+python -m src.cli run-complete-case --config configs/hose300_complete_case_exploratory.yaml
+```

@@ -4,20 +4,23 @@ version = "0.1.0"
 description = "Point-in-time AI and feasible-subspace QAOA portfolio research pipeline"
 requires-python = ">=3.11"
 dependencies = [
-  "numpy",
-  "pandas",
-  "pyarrow",
-  "scikit-learn",
-  "scipy",
-  "xgboost",
-  "matplotlib",
-  "PyYAML",
-  "requests",
-  "vnstock>=4.0.5",
-  "finance-datareader>=0.9.202",
-  "pip-system-certs>=5.3",
-  "streamlit",
+  "numpy==2.2.6",
+  "pandas==2.3.1",
+  "pyarrow==24.0.0",
+  "scikit-learn==1.8.0",
+  "scipy==1.16.1",
+  "xgboost==3.3.0",
+  "matplotlib==3.10.5",
+  "PyYAML==6.0.2",
+  "requests==2.32.5",
+  "vnstock==4.0.5",
+  "finance-datareader==0.9.202",
+  "pip-system-certs==5.3",
+  "streamlit==1.58.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1"]
 
 [project.scripts]
 quantum-portfolio = "src.cli:main"

@@ -1,0 +1,43 @@
+name: research-v2-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-audit-code:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quantum_portfolio_data
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: quantum_portfolio_data/pyproject.toml
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Compile
+        run: python -m compileall -q src scripts
+      - name: Tests
+        run: python -m pytest -q
+      - name: Git LFS integrity
+        working-directory: .
+        run: git lfs fsck
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

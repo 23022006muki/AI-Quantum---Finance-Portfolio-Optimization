@@ -1,0 +1,31 @@
+{
+  "status": "success_with_unresolved_events",
+  "source_priority": [
+    "VSDC official notices",
+    "CafeF reference ex-date history"
+  ],
+  "requested_tickers": 500,
+  "official_rows": 2261,
+  "reference_rows": 2359,
+  "ledger_rows": 2655,
+  "status_counts": {
+    "verified_cross_source": 1698,
+    "reference_only_unverified": 405,
+    "unresolved_ex_date": 302,
+    "conflict": 250
+  },
+  "conflicts": 562,
+  "cafef_failures": [],
+  "vsdc_failures": [],
+  "start": "2020-01-01",
+  "end": "2025-12-31",
+  "dataset_sha256": "6134dfcefe4bcd22696b215d852cd19d85fd7e399d1107f2c700d12fb82cf92f",
+  "fetched_at": "2026-08-15T05:44:41.776822+00:00",
+  "verification_rule": "verified_cross_source requires VSDC official terms plus a matching CafeF ex-date within 0-7 calendar days before the VSDC record date and compatible material terms",
+  "limitations": [
+    "CafeF is an aggregated corroboration source, not official",
+    "current CafeF summary pages do not establish historical publication timestamps",
+    "unmatched or conflicting events are excluded from total-return construction",
+    "absence of a notice in the collected search result is not proof that no event occurred"
+  ]
+}

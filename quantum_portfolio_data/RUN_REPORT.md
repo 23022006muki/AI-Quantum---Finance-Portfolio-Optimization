@@ -1,84 +1,44 @@
 # Run report
 
-## Final implemented scope
+## Trạng thái triển khai
 
-The executable system now includes:
+Nhánh `fix/research-validity` đã hoàn thiện luồng nghiên cứu AI–Quantum theo hướng
+fail-closed. QUBO dùng vector lợi nhuận kỳ vọng được hiệu chỉnh từ XGBoost trên validation
+đã purge; EWMA đa biến ước lượng hiệp phương sai và làm đối chứng. Universe toàn HOSE và
+universe theo thành phần chỉ số được khai báo tách biệt.
 
-- immutable raw manifests, normalized/curated layers and Parquet contracts;
-- deterministic Stage 1–3 fixtures with explicit `data_class=fixture`;
-- official SSI FastConnect Stage 1 adapter with retry/backoff and fail-closed credentials;
-- user-authorized CSV adapter and point-in-time importers for historical index membership,
-  corporate actions, financial statements, macro releases and foreign flow;
-- official FRED adapter with release-aware timestamps;
-- point-in-time universe reconstruction and leakage/data-quality/coverage audits;
-- technical, fundamental and macro features joined only after `available_at`;
-- walk-forward folds, train-only imputer/scaler and XGBoost/EWMA baselines;
-- correlation-aware adaptive universe reduction;
-- QUBO, exact solver, simulated annealing and stochastic penalty baseline;
-- full-space ideal statevector penalty-QAOA circuit simulation;
-- fixed-Hamming-weight Dicke/XY-QAOA ideal statevector simulation;
-- classical constrained weight optimization and transaction costs;
-- eight ablation configurations;
-- sensitivity over cardinality, depth, shots, noise proxy and transaction cost;
-- block-bootstrap paired comparisons with Holm correction;
-- trailing-information market-regime metrics;
-- Streamlit artifact viewer and reproducible Markdown/HTML reports.
+Backtest hiện xử lý buy-and-hold drift, missing return, hủy niêm yết có xác minh, giới hạn
+tỷ trọng/ngành/turnover/ADV, đồng thời tách commission, thuế bán, slippage và market impact.
+Benchmark total-return và risk-free PIT có hợp đồng import riêng. H1–H6, ablation,
+sensitivity đa seed, noise stress, bootstrap–Holm và artifact SHA-256 đều có đầu ra kiểm toán.
 
-## Latest verified execution
+## Kiểm thử phần mềm
 
-Experiment:
+- `42 passed`.
+- Có research-mode integration test thành công với hợp đồng dữ liệu tổng hợp hợp lệ.
+- Audit phát hiện artifact bị sửa sau khi chạy.
+- Demo fixture gần nhất audit `pass`; fixture không phải kết quả nghiên cứu.
 
-`outputs/experiments/20260730T002029-1c4e58b47e`
+## Research gate trên panel hiện có
 
-Commands:
+Panel thật có 467.164 dòng, 300 mã, từ 2020-01-02 đến 2025-12-31. Lần chạy
+`20260806T181627-c5ef044e1b-blocked` được audit là `blocked_valid` và dừng trước model vì:
+
+1. data-quality còn 47 adjusted-return outliers chưa xác minh;
+2. lịch sử niêm yết/hủy niêm yết vẫn dùng `first_price_observation_proxy`;
+3. universe snapshot vì thế chưa có nguồn lịch sử đủ tin cậy;
+4. chưa có hợp đồng điều chỉnh giá đã xác minh;
+5. chưa có VN-Index total-return point-in-time theo data contract.
+
+Các bảng phụ fixture cũ đã được chuyển có thể phục hồi sang
+`outputs/quarantine/fixture_auxiliary/20260806T180922`. Không có metrics H1–H6 hoặc tuyên
+bố quantum advantage được phát hành từ run bị chặn.
+
+## Lệnh kiểm tra
 
 ```powershell
 python -m pytest -q
-python -m compileall -q src app.py
-python -m src.cli crawl --stage 1 --source fixture --from 2020-01-01 --to 2025-12-31
-python -m src.cli validate --stage 1
-python -m src.cli build-universe --rebalance monthly
-python -m src.cli leakage-audit
-python -m src.cli run-experiment --config configs/quick.yaml
-python -m streamlit run app.py --server.headless=true --server.port=8511
-```
-
-Verified results:
-
-- Tests: 10 passed.
-- Compilation: passed.
-- Records: 46,980; tickers: 30; period: 2020-01-01 through 2025-12-31.
-- Universe rows: 2,160.
-- Fixture data quality: pass.
-- Fixture leakage contracts: 5/5 true, `pass_for_fixture_demo`.
-- Walk-forward folds: 12/12.
-- Ablation configurations: 8, producing 96 fold-level ablation rows.
-- Sensitivity cases: 48.
-- Solver runs: 108.
-- Penalty-QAOA mean feasibility: approximately 0.781 in the 30-ticker comprehensive run.
-- XY-QAOA/Dicke feasibility: 1.0 by fixed-weight subspace construction.
-- Paired block-bootstrap/Holm results: no significant outperformance in fixture mode.
-- UI: `http://localhost:8511`.
-- Full research config preflight: correctly refused fixture data.
-
-## Scientific status
-
-All fixture artifacts are labeled **NOT RESEARCH RESULT**. The software implementation is
-complete and tested, but a genuine HOSE 2015–2025 research execution cannot be fabricated.
-The official SSI adapter requires credentials that are not present:
-
-- `SSI_CONSUMER_ID`
-- `SSI_CONSUMER_SECRET`
-
-Historical listing/delisting dates, VN30 effective membership, corporate-action history and
-publication-timestamp financial statements must also come from an authorized, reliable
-source. The pipeline rejects incomplete point-in-time tables.
-
-To execute official data after credentials are supplied:
-
-```powershell
-$env:SSI_CONSUMER_ID="..."
-$env:SSI_CONSUMER_SECRET="..."
-python -m src.cli crawl --stage 1 --source ssi --from 2015-01-01 --to 2025-12-31 `
-  --tickers VNM,FPT,HPG,SSI
+python -m compileall -q src app.py scripts tests
+python -m src.cli run-full --config configs/hose300_real.yaml
+python scripts/audit_research_run.py outputs/experiments/20260806T181627-c5ef044e1b-blocked --allow-blocked
 ```

@@ -1,0 +1,24 @@
+{
+  "status": "blocked",
+  "generated_at": "2026-08-15T06:04:16.872337+00:00",
+  "input_price_sha256": "073c81a8aa8bc32c6f56f79d994af447d1d69eaf2b15b5c9972e7bc28c741191",
+  "corporate_action_sha256": "6134dfcefe4bcd22696b215d852cd19d85fd7e399d1107f2c700d12fb82cf92f",
+  "contract_sha256": "8d91d93e2e305363d0f0c0c0d806c9cd213d494b12338ba101e40006b1cf0f03",
+  "output_price_sha256": "dd24d243f3e00d6516962326474ff243cdc200e9667dd1b4a7dd5cd3ed664b82",
+  "adjustment_version": "corporate-actions-v2",
+  "price_rows": 597045,
+  "tickers": 444,
+  "verified_events_applied": 1698,
+  "unresolved_material_events": 956,
+  "source_adjustment_changes_over_1pp": 1544,
+  "unmatched_source_adjustment_changes_over_1pp": 1531,
+  "price_band_anomalies": 2354,
+  "unexplained_price_band_anomalies": 2311,
+  "blockers": [
+    "956 material corporate-action rows are unresolved",
+    "1531 source-adjustment changes above 1 percentage point are unmatched",
+    "2311 raw price moves exceed the compounded HOSE band without a matched event"
+  ],
+  "research_eligible": false,
+  "note": "The candidate file preserves raw and vendor-adjusted fields separately. A blocked candidate must not be used for confirmatory research."
+}

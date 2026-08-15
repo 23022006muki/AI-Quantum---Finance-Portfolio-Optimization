@@ -16,6 +16,28 @@ if not experiments:
 selected = st.sidebar.selectbox("Experiment", experiments, format_func=lambda p: p.name)
 manifest = json.loads((selected / "manifest.json").read_text(encoding="utf-8"))
 st.sidebar.json(manifest)
+if manifest.get("status") == "blocked":
+    st.error("Research run was blocked before training/backtesting. No research metrics were produced.")
+    st.write("Blockers:", manifest.get("blockers", []))
+    if (selected / "RESEARCH_BLOCKED.md").exists():
+        st.markdown((selected / "RESEARCH_BLOCKED.md").read_text(encoding="utf-8"))
+    quality_path = selected / "data_quality.json"
+    leakage_path = selected / "leakage_audit.json"
+    if quality_path.exists():
+        st.subheader("Data-quality gate")
+        st.json(json.loads(quality_path.read_text(encoding="utf-8")))
+    if leakage_path.exists():
+        st.subheader("Point-in-time gate")
+        st.json(json.loads(leakage_path.read_text(encoding="utf-8")))
+    outlier_path = selected / "return_outlier_review.csv"
+    if outlier_path.exists():
+        st.subheader("Return outlier review")
+        st.dataframe(pd.read_csv(outlier_path), width="stretch")
+    st.download_button(
+        "Download blocker manifest", (selected / "manifest.json").read_bytes(),
+        file_name="manifest.json",
+    )
+    st.stop()
 tab_names = ["Overview", "Data Quality", "Ranking & Reduction", "Solver Comparison",
              "Portfolio & Backtest", "Ablation & Robustness", "Reproducibility"]
 tabs = st.tabs(tab_names)
@@ -31,6 +53,14 @@ with tabs[2]:
     selection = pd.read_csv(selected / "selected_universe.csv")
     st.dataframe(rank, width="stretch")
     st.dataframe(selection, width="stretch")
+    calibration_path = selected / "signal_calibration.csv"
+    aur_path = selected / "aur_diagnostics.csv"
+    if calibration_path.exists():
+        st.subheader("XGBoost rank-to-return calibration")
+        st.dataframe(pd.read_csv(calibration_path), width="stretch")
+    if aur_path.exists():
+        st.subheader("Adaptive reduction versus fixed Top-M")
+        st.dataframe(pd.read_csv(aur_path), width="stretch")
 with tabs[3]:
     comparison = pd.read_csv(selected / "comparisons.csv")
     st.dataframe(comparison, width="stretch")
@@ -46,13 +76,35 @@ with tabs[4]:
         curve = returns.pivot_table(index="date", columns="strategy", values="return", aggfunc="mean")
         st.line_chart((1 + curve).cumprod())
     st.dataframe(pd.read_csv(selected / "weights.csv"), width="stretch")
+    latest_portfolio_path = selected / "latest_selected_portfolio.csv"
+    if latest_portfolio_path.exists():
+        st.subheader("Latest XY-QAOA selected portfolio")
+        st.dataframe(pd.read_csv(latest_portfolio_path), width="stretch")
+    st.subheader("Trading constraints and realized costs")
+    st.caption(
+        "Long-only, fully invested, configured weight bounds; weights drift buy-and-hold "
+        "between rebalances. The same turnover-based cost policy applies to all strategies."
+    )
+    st.dataframe(pd.read_csv(selected / "cost_ledger.csv"), width="stretch")
+    constraints_path = selected / "constraint_diagnostics.csv"
+    if constraints_path.exists():
+        st.subheader("Constraint diagnostics by fold")
+        st.dataframe(pd.read_csv(constraints_path), width="stretch")
+    missing_path = selected / "missing_return_resolution.csv"
+    if missing_path.exists():
+        st.subheader("Missing-return and delisting resolution")
+        st.dataframe(pd.read_csv(missing_path), width="stretch")
+    risk_free_path = selected / "risk_free_series.csv"
+    if risk_free_path.exists():
+        st.subheader("Risk-free series used by performance metrics")
+        st.dataframe(pd.read_csv(risk_free_path), width="stretch")
     regime_path = selected / "regime_metrics.csv"
     if regime_path.exists():
         st.subheader("Trailing-information market regimes")
         st.dataframe(pd.read_csv(regime_path), width="stretch")
 with tabs[5]:
     st.info("Fixture-mode inference is descriptive and remains NOT RESEARCH RESULT.")
-    st.subheader("Eight ablation configurations")
+    st.subheader("Ablation configurations")
     st.dataframe(pd.read_csv(selected / "ablation_results.csv"), width="stretch")
     st.subheader("Sensitivity grid")
     st.dataframe(pd.read_csv(selected / "sensitivity_results.csv"), width="stretch")

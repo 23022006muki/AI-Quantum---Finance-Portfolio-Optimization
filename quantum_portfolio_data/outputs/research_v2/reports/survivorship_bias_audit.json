@@ -1,0 +1,21 @@
+{
+  "status": "partial_blocked",
+  "generated_at": "2026-08-15T06:02:50.132682+00:00",
+  "security_master_rows": 500,
+  "decision_dates": 72,
+  "eligible_ticker_decision_rows": 26262,
+  "unique_eligible_tickers": 435,
+  "delisted_securities_retained_in_master": 96,
+  "whole_sample_completeness_filter_used": false,
+  "suspension_history_available": false,
+  "sector_pit_available": false,
+  "blockers": [
+    "historical suspension intervals are unavailable",
+    "official historical master may not cover every renamed or merged legal entity"
+  ],
+  "security_master_sha256": "0bfffb133ccac72e0909e6f44f71957fd6a94a3be0e4febb3e3e9a966a685378",
+  "universe_sha256": "be70b87aac2a1bb1f857b2d7e9cde8210be41f5c7ceace6ab155b1f97b86574b",
+  "input_security_master_sha256": "e36d3e54b6f4c23e1ecc1ddac89ac4d1392d96bf5c5067d1299e3ce37616595a",
+  "input_price_sha256": "073c81a8aa8bc32c6f56f79d994af447d1d69eaf2b15b5c9972e7bc28c741191",
+  "eligibility_logic_sha256": "e505ac552b61c54a2543dbd3cf6a5920bf12743112ce5158c889adc73bb6dc28"
+}

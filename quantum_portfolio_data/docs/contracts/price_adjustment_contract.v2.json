@@ -1,0 +1,50 @@
+{
+  "contract_version": "2.0.0",
+  "adjustment_version": "corporate-actions-v2",
+  "currency": "VND",
+  "ratio_conventions": {
+    "stock_dividend_ratio": "new shares received per pre-event share",
+    "bonus_share_ratio": "new shares received per pre-event share",
+    "rights_ratio": "new subscription shares available per pre-event share",
+    "split_ratio": "new shares after split per share before split",
+    "reverse_split_ratio": "old shares required for one new share"
+  },
+  "return_formula": "total_return_t = (raw_close_t * share_multiplier + cash_dividend_per_pre_event_share - rights_ratio * rights_subscription_price) / raw_close_t_minus_1 - 1",
+  "share_multiplier": "(1 + stock_dividend_ratio + bonus_share_ratio + rights_ratio) * split_ratio / reverse_split_ratio",
+  "event_formulas": {
+    "CASH_DIVIDEND": "share_multiplier unchanged; add cash_dividend_per_share to terminal wealth",
+    "STOCK_DIVIDEND": "add stock_dividend_ratio to post-event shares",
+    "BONUS_SHARE": "add bonus_share_ratio to post-event shares",
+    "STOCK_SPLIT": "multiply post-event shares by split_ratio",
+    "REVERSE_SPLIT": "divide post-event shares by reverse_split_ratio",
+    "RIGHTS_ISSUE": "add rights_ratio shares and deduct rights_ratio multiplied by rights_subscription_price; never model as a split",
+    "SHARE_CONVERSION": "fail closed unless the conversion ratio and security identity transition are verified",
+    "MERGER": "fail closed unless consideration, conversion ratio and successor security identity are verified",
+    "OTHER": "not adjustment-eligible without a separately reviewed formula"
+  },
+  "multiple_events_same_date": "Aggregate cash amounts and additive share entitlements per pre-event share; multiply split terms; combine rights cash outflows. Conflicting terms block the date.",
+  "rounding": "Retain full floating-point precision in return construction; board-lot and whole-share rounding are applied only in portfolio execution, not in index-style total return.",
+  "effective_date": "Use the verified ex-right date, not payment date or record date.",
+  "vintage_point_in_time": "An event is adjustment-eligible only when the official available_at timestamp is not later than the ex-right date. Later corrections create a new adjustment version and never rewrite an earlier artifact in place.",
+  "price_fields": {
+    "raw_open_high_low_close": "immutable source OHLC",
+    "source_adjusted_close": "provider adjustment retained for comparison only",
+    "research_adjusted_close": "price-like cumulative index whose one-period percentage change equals verified research total return"
+  },
+  "source_priority": [
+    "HOSE/VSDC official notice",
+    "issuer investor-relations disclosure",
+    "credentialed SSI source when legally accessible",
+    "Vietstock/CafeF corroboration",
+    "Yahoo/FinanceDataReader adjustment-factor comparison only"
+  ],
+  "fail_closed_conditions": [
+    "material event lacks verified ex-right date",
+    "cash amount, share ratio or rights subscription price is missing",
+    "independent sources conflict beyond declared tolerance",
+    "official publication is later than the ex-right date",
+    "a source-adjusted versus raw-return change above one percentage point is unmatched",
+    "security identity or merger/conversion successor is ambiguous",
+    "required total-return benchmark is unavailable"
+  ]
+}

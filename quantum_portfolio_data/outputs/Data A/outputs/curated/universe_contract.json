@@ -1,0 +1,14 @@
+{
+  "definition": "hose_all_listed",
+  "index_code": null,
+  "rebalance": "monthly",
+  "max_assets": 300,
+  "liquidity_lookback_days": 60,
+  "minimum_observations": 40,
+  "selection_information_cutoff": "price.available_at <= decision_time",
+  "snapshot_rows": 21300,
+  "tickers": 389,
+  "start": "2020-02-29",
+  "end": "2025-12-31",
+  "built_at": "2026-08-13T09:45:23.506323+00:00"
+}

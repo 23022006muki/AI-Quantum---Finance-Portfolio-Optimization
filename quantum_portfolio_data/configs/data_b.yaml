@@ -1,0 +1,134 @@
+mode: exploratory
+label: "DATA B - OPTIMIZED EXPLORATORY HOSE PIPELINE; NOT CONFIRMATORY RESEARCH"
+seed: 42
+
+# Data B reuses the cleaned Data A workspace. It does not crawl or replace the
+# normalized price panel. Dates are enforced by run_experiment.
+data:
+  source: data_a_complete_case_reused
+  start: "2020-01-01"
+  end: "2025-12-31"
+  rebalance: monthly
+
+universe:
+  definition: hose_all_listed
+  index_code: null
+  max_assets: 300
+  liquidity_lookback_days: 60
+  minimum_observations: 40
+
+walk_forward:
+  train_months: 24
+  validation_months: 3
+  test_months: 1
+  max_folds: null
+  embargo_days: 20
+  selection: all
+
+target:
+  horizon_days: 20
+
+model:
+  kind: xgboost
+  signal_mode: validation_blend
+  xgboost_weight_grid: [0.25, 0.50, 0.75, 1.00]
+  blend_stability_penalty: 0.25
+  n_estimators: 180
+  max_depth: 4
+  learning_rate: 0.035
+  min_feature_coverage: 0.05
+
+reduction:
+  qubit_budget: 8
+  candidate_size: 8
+  min_candidate_size: 8
+  max_candidate_size: 8
+  cardinality: 4
+  signal_weight: 0.40
+  liquidity_weight: 0.35
+  risk_weight: 0.15
+  correlation_penalty: 0.10
+  stability_weight: 0.20
+  minimum_candidate_retention: 0.50
+  low_signal_dispersion_ratio: 0.0
+  high_correlation_threshold: 0.65
+  liquidity_floor_quantile: 0.20
+  risk_ceiling_quantile: 0.90
+  correlation_cluster_threshold: 0.70
+  max_candidates_per_cluster: 2
+  max_candidates_per_sector: 3
+  minimum_expected_return: 0.0
+  expected_return_column: optimization_expected_return
+  require_minimum_expected_return: true
+  insufficient_positive_policy: defensive_topk
+
+qubo:
+  risk_aversion: 0.55
+  expected_return_source: validation_blend_calibrated
+
+covariance:
+  method: ewma
+  span: 60
+  horizon_days: 20
+  minimum_coverage: 0.95
+
+solver:
+  qaoa_depth: 2
+  shots: 1024
+  seeds: [11, 23, 47]
+  parameter_trials: 45
+  optimizer: COBYLA
+  solution_selection: best_observed_feasible
+  declared_depth_grid: [1, 2, 3]
+  declared_shots_grid: [256, 1024, 2048]
+
+weights:
+  # Bounds apply inside the equity sleeve. The regime overlay may keep residual cash.
+  lower: 0.05
+  upper: 0.40
+  risk_aversion: 1.25
+  turnover_penalty: 0.01
+
+exposure:
+  mode: market_trend_volatility
+  fast_days: 63
+  slow_days: 126
+  minimum_exposure: 0.25
+  neutral_exposure: 0.60
+  target_market_volatility: 0.22
+
+constraints:
+  portfolio_notional_vnd: 100000000
+  capacity_scenarios_vnd: [100000000, 1000000000]
+  max_adv_participation: 0.05
+  max_one_way_turnover: null
+  sector_cap: 0.50
+  board_lot: 100
+
+backtest:
+  transaction_cost_bps: 10
+  commission_bps: 10
+  sell_tax_bps: 10
+  slippage_bps: 5
+  impact_coefficient: 0.0005
+  delisting_return: -1.0
+  maximum_unexplained_gap_days: 5
+  risk_free_annual: 0.03
+
+benchmark:
+  name: VNINDEX_TOTAL_RETURN
+  required: false
+
+risk_free:
+  mode: fixed_annual
+  annual_rate: 0.03
+
+sensitivity:
+  design: partial_factorial_representative_folds
+  representative_folds: 3
+  seeds: [11, 23]
+
+exploratory:
+  allowed_leakage_blockers:
+    - price_adjustment_policy_verified
+    - price_adjustment_contract_matches_dataset

@@ -1,0 +1,63 @@
+# Exploratory complete-case run report
+
+- Experiment: `20260813T164535-21c9b569ce`
+- Status: `success`
+- Label: **EXPLORATORY ONLY - COMPLETE-CASE REAL HOSE PANEL; NOT CONFIRMATORY RESEARCH**
+- Data records: 565471
+- Tickers: 394
+- Folds requested/completed: 12/12
+- Data quality: `pass`
+- Leakage audit: `pass_for_exploratory_with_declared_limitations`
+- Command: `python -m src.cli run-experiment --config D:\NCKH 2026 - Thầy Dã\quantum_portfolio_data\configs\hose300_complete_case_exploratory.yaml`
+- Quantum backend: internal ideal fixed-Hamming-weight statevector simulator; not hardware.
+- Limitations: index_membership_not_configured, financial_statements_not_configured, macro_not_configured, foreign_flow_not_configured.
+
+## Artifact index
+
+- `RESEARCH_REPORT.md`
+- `ablation_results.csv`
+- `aur_diagnostics.csv`
+- `comparisons.csv`
+- `constraint_diagnostics.csv`
+- `cost_ledger.csv`
+- `data_provenance.json`
+- `data_quality.json`
+- `data_quality.md`
+- `environment.txt`
+- `feature_coverage_by_fold.csv`
+- `features.parquet`
+- `figures/drawdown.png`
+- `figures/equity_curve.png`
+- `figures/feasibility_rate.png`
+- `figures/optimality_gap.png`
+- `figures/rank_ic_by_fold.png`
+- `figures/risk_return.png`
+- `figures/sensitivity_analysis.png`
+- `figures/turnover_and_cost.png`
+- `fold_manifest.csv`
+- `hypothesis_results.csv`
+- `latest_selected_portfolio.csv`
+- `latest_selected_portfolio.md`
+- `leakage_audit.json`
+- `leakage_audit.md`
+- `manifest.json`
+- `metrics_long.csv`
+- `missing_return_resolution.csv`
+- `model_tuning.csv`
+- `optimization_instances.json`
+- `portfolio_returns.csv`
+- `rankings.csv`
+- `regime_metrics.csv`
+- `report.html`
+- `resolved_config.yaml`
+- `return_outlier_review.csv`
+- `risk_free_series.csv`
+- `selected_assets_by_fold.csv`
+- `selected_universe.csv`
+- `sensitivity_results.csv`
+- `signal_calibration.csv`
+- `solver_runs.csv`
+- `statistical_tests.csv`
+- `strategy_metrics_summary.csv`
+- `trades.csv`
+- `weights.csv`

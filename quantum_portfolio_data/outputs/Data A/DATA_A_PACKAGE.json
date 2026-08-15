@@ -1,0 +1,16 @@
+{
+  "name": "Data A",
+  "dataset_kind": "exploratory_complete_case_real_hose_panel",
+  "records": 565471,
+  "tickers": 394,
+  "start": "2020-01-02",
+  "end": "2025-12-31",
+  "minimum_total_observations": 40,
+  "maximum_calendar_gap_days": 5,
+  "dataset_sha256": "6e046b509fef366681866328d5bd99ec63541c2de8597f0e7bebc101813baa05",
+  "experiment_id": "20260813T164535-21c9b569ce",
+  "experiment_status": "success",
+  "folds_completed": 12,
+  "folds_requested": 12,
+  "interpretation": "exploratory_only_not_confirmatory_research"
+}
