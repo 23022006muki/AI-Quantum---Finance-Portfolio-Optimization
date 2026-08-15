@@ -150,10 +150,20 @@ def attach_point_in_time_features(features: pd.DataFrame, paths: Paths) -> pd.Da
 
 def make_folds(dates: pd.Series, train_months: int, validation_months: int,
                test_months: int, max_folds: int | None,
-               embargo_days: int = 0, selection: str = "evenly_spaced") -> list[dict]:
+               embargo_days: int = 0, selection: str = "evenly_spaced",
+               final_holdout_months: int = 0) -> list[dict]:
     unique = pd.Series(pd.to_datetime(dates).sort_values().unique())
     first = unique.min() + pd.DateOffset(months=train_months + validation_months)
-    last = unique.max() - pd.DateOffset(months=test_months)
+    final_date = unique.max()
+    holdout_start = (
+        final_date - pd.DateOffset(months=int(final_holdout_months))
+        if final_holdout_months else None
+    )
+    last = (
+        holdout_start - pd.DateOffset(months=test_months)
+        if holdout_start is not None
+        else final_date - pd.DateOffset(months=test_months)
+    )
     anchors = pd.date_range(first, last, freq="ME")
     if max_folds and len(anchors) > max_folds:
         if selection == "first":
@@ -163,7 +173,7 @@ def make_folds(dates: pd.Series, train_months: int, validation_months: int,
         elif selection == "evenly_spaced":
             anchors = anchors[np.unique(np.linspace(0, len(anchors) - 1, max_folds).round().astype(int))]
         else:
-            raise ValueError("fold selection must be first, last, or evenly_spaced")
+            raise ValueError("fold selection must be first, last, evenly_spaced, or all")
     folds = []
     for i, test_start in enumerate(anchors):
         train_start = test_start - pd.DateOffset(months=train_months + validation_months)
@@ -173,7 +183,19 @@ def make_folds(dates: pd.Series, train_months: int, validation_months: int,
             "fold": i, "train_start": train_start, "train_end": validation_start,
             "validation_start": validation_start,
             "validation_end": test_start, "test_start": test_start, "test_end": test_end,
+            "embargo_days": int(embargo_days), "phase": "development",
+        })
+    if holdout_start is not None:
+        folds.append({
+            "fold": len(folds),
+            "train_start": holdout_start - pd.DateOffset(months=train_months + validation_months),
+            "train_end": holdout_start - pd.DateOffset(months=validation_months),
+            "validation_start": holdout_start - pd.DateOffset(months=validation_months),
+            "validation_end": holdout_start,
+            "test_start": holdout_start,
+            "test_end": final_date,
             "embargo_days": int(embargo_days),
+            "phase": "final_holdout",
         })
     return folds
 
@@ -229,11 +251,14 @@ def fit_ranker(train: pd.DataFrame, validation: pd.DataFrame, cfg: dict):
     tuning_rows = []
     base_estimators = int(cfg["n_estimators"])
     base_depth = int(cfg["max_depth"])
-    candidates = [
-        (max(20, base_estimators // 2), max(2, base_depth - 1)),
-        (base_estimators, base_depth),
-        (base_estimators, max(2, base_depth + 1)),
-    ]
+    candidates = (
+        [(base_estimators, base_depth)] if not cfg.get("tuning_enabled", True)
+        else [
+            (max(20, base_estimators // 2), max(2, base_depth - 1)),
+            (base_estimators, base_depth),
+            (base_estimators, max(2, base_depth + 1)),
+        ]
+    )
     best = None
     for n_estimators, max_depth in dict.fromkeys(candidates):
         model = XGBRegressor(
@@ -304,8 +329,33 @@ def calibrate_rank_signal_to_returns(
     }
 
 
-def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+def adaptive_reduce(
+    snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict,
+    previous_candidates: set[str] | None = None,
+) -> pd.DataFrame:
     snap = snapshot.copy()
+    previous_candidates = set(previous_candidates or set())
+    snap["aur_eligible"] = True
+    liquidity_quantile = cfg.get("liquidity_floor_quantile")
+    risk_quantile = cfg.get("risk_ceiling_quantile")
+    if liquidity_quantile is not None:
+        liquidity_floor = float(snap["liquidity_20d"].quantile(float(liquidity_quantile)))
+        snap["aur_eligible"] &= snap["liquidity_20d"].ge(liquidity_floor)
+    else:
+        liquidity_floor = np.nan
+    if risk_quantile is not None:
+        risk_ceiling = float(snap["volatility_20d"].quantile(float(risk_quantile)))
+        snap["aur_eligible"] &= snap["volatility_20d"].le(risk_ceiling)
+    else:
+        risk_ceiling = np.nan
+    eligible = snap[snap["aur_eligible"]].copy()
+    cardinality = int(cfg.get("cardinality", 1))
+    if len(eligible) < cardinality:
+        snap["aur_eligible"] = True
+        eligible = snap.copy()
+        threshold_relaxed = True
+    else:
+        threshold_relaxed = False
     z = lambda s: (s - s.mean()) / (s.std(ddof=0) + 1e-12)
     snap["signal_z"] = z(snap["signal"])
     snap["liquidity_z"] = z(snap["liquidity_20d"])
@@ -315,13 +365,39 @@ def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) ->
         + cfg["liquidity_weight"] * snap["liquidity_z"]
         - cfg["risk_weight"] * snap["risk_z"]
     )
+    snap["was_previous_candidate"] = snap["ticker"].isin(previous_candidates)
+    snap["stability_bonus"] = (
+        snap["was_previous_candidate"].astype(float)
+        * float(cfg.get("stability_weight", 0.0))
+    )
+    snap["base_score"] = snap["base_score"] + snap["stability_bonus"]
+    eligible = snap[snap["aur_eligible"]].copy()
     m_max = min(int(cfg.get("max_candidate_size", cfg["candidate_size"])),
-                int(cfg["qubit_budget"]), len(snap))
+                int(cfg["qubit_budget"]), len(eligible))
     m_min = min(m_max, max(int(cfg.get("min_candidate_size", cfg.get("cardinality", 1))),
                            int(cfg.get("cardinality", 1))))
     selected: list[str] = []
     returns = history.pivot(index="date", columns="ticker", values="ret1").tail(120)
     corr = returns.corr().fillna(0)
+    cluster_threshold = float(cfg.get("correlation_cluster_threshold", 1.01))
+    parent = {ticker: ticker for ticker in eligible["ticker"].astype(str)}
+    def find(item: str) -> str:
+        while parent[item] != item:
+            parent[item] = parent[parent[item]]
+            item = parent[item]
+        return item
+    def union(left: str, right: str) -> None:
+        root_left, root_right = find(left), find(right)
+        if root_left != root_right:
+            parent[max(root_left, root_right)] = min(root_left, root_right)
+    eligible_names = sorted(parent)
+    for left_index, left in enumerate(eligible_names):
+        for right in eligible_names[left_index + 1:]:
+            value = abs(float(corr.at[left, right])) if left in corr.index and right in corr.columns else 0.0
+            if value >= cluster_threshold:
+                union(left, right)
+    cluster_map = {ticker: find(ticker) for ticker in eligible_names}
+    snap["correlation_cluster"] = snap["ticker"].astype(str).map(cluster_map).fillna("INELIGIBLE")
     upper = corr.where(np.triu(np.ones(corr.shape), 1).astype(bool)).stack()
     average_abs_correlation = float(upper.abs().mean()) if len(upper) else 0.0
     signal_dispersion = float(snap["signal"].std(ddof=0))
@@ -329,6 +405,8 @@ def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) ->
     relative_dispersion = signal_dispersion / dispersion_reference
     m = m_max
     reasons = []
+    if threshold_relaxed:
+        reasons.append("liquidity_risk_threshold_relaxed_for_feasibility")
     if relative_dispersion < float(cfg.get("low_signal_dispersion_ratio", 0.10)):
         m = max(m_min, m - 1)
         reasons.append("low_signal_dispersion")
@@ -337,8 +415,38 @@ def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) ->
         reasons.append("high_cross_sectional_correlation")
     if not reasons:
         reasons.append("full_budget_supported")
-    for _ in range(m):
-        remain = snap[~snap["ticker"].isin(selected)].copy()
+    retention = float(cfg.get("minimum_candidate_retention", 0))
+    retention_count = (
+        int(math.ceil(retention * m)) if 0 < retention < 1 else int(retention)
+    )
+    retention_count = min(m, max(0, retention_count))
+    eligible_previous = eligible[eligible["ticker"].isin(previous_candidates)].sort_values(
+        ["base_score", "ticker"], ascending=[False, True]
+    )
+    cluster_cap = int(cfg.get("max_candidates_per_cluster", m))
+    sector_cap = int(cfg.get("max_candidates_per_sector", m))
+    sector_available = "sector" in eligible.columns and eligible["sector"].notna().any()
+    def can_add(ticker: str) -> bool:
+        cluster = cluster_map.get(str(ticker), str(ticker))
+        cluster_count = sum(cluster_map.get(str(item), str(item)) == cluster for item in selected)
+        if cluster_count >= cluster_cap:
+            return False
+        if sector_available:
+            ticker_sector = eligible.loc[eligible["ticker"].eq(ticker), "sector"].iloc[0]
+            if pd.notna(ticker_sector):
+                selected_sectors = eligible.loc[eligible["ticker"].isin(selected), "sector"]
+                if int(selected_sectors.eq(ticker_sector).sum()) >= sector_cap:
+                    return False
+        return True
+    for ticker in eligible_previous["ticker"]:
+        if len(selected) >= retention_count:
+            break
+        if can_add(str(ticker)):
+            selected.append(str(ticker))
+    if selected:
+        reasons.append(f"retained_{len(selected)}_prior_candidates")
+    for _ in range(len(selected), m):
+        remain = eligible[~eligible["ticker"].isin(selected)].copy()
         if selected:
             remain["corr_penalty"] = [
                 float(corr.loc[t, selected].abs().mean()) if t in corr.index else 0.0
@@ -347,7 +455,13 @@ def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) ->
         else:
             remain["corr_penalty"] = 0.0
         remain["adaptive_score"] = remain["base_score"] - cfg["correlation_penalty"] * remain["corr_penalty"]
-        selected.append(remain.sort_values(["adaptive_score", "ticker"], ascending=[False, True]).iloc[0]["ticker"])
+        allowed = remain[remain["ticker"].astype(str).map(can_add)]
+        if allowed.empty:
+            allowed = remain
+            reasons.append("cluster_or_sector_cap_relaxed_for_feasibility")
+        selected.append(str(allowed.sort_values(
+            ["adaptive_score", "ticker"], ascending=[False, True]
+        ).iloc[0]["ticker"]))
     snap["selected_candidate"] = snap["ticker"].isin(selected)
     snap["decision_reason"] = np.where(snap["selected_candidate"],
         "selected_by_signal_liquidity_risk_and_correlation", "outside_qubit_budget")
@@ -357,6 +471,11 @@ def adaptive_reduce(snapshot: pd.DataFrame, history: pd.DataFrame, cfg: dict) ->
     snap["relative_signal_dispersion"] = relative_dispersion
     snap["average_abs_correlation"] = average_abs_correlation
     snap["candidate_size_reason"] = "|".join(reasons)
+    snap["retained_prior_candidates"] = len(set(selected) & previous_candidates)
+    snap["liquidity_floor"] = liquidity_floor
+    snap["risk_ceiling"] = risk_ceiling
+    snap["cluster_cap"] = cluster_cap
+    snap["sector_candidate_cap"] = sector_cap if sector_available else np.nan
     return snap.sort_values(["selected_candidate", "base_score"], ascending=[False, False])
 
 
@@ -435,6 +554,39 @@ def portfolio_turnover(previous: dict[str, float],
     return float(sum(abs(value) for value in trades.values())), trades
 
 
+def round_target_weights_to_board_lot(
+    target: dict[str, float], prices: dict[str, float], notional_vnd: float,
+    board_lot: int = 100,
+) -> tuple[dict[str, float], dict]:
+    """Convert continuous target weights to executable board-lot weights.
+
+    Residual cash is explicit and remains uninvested. The function never reallocates
+    that cash to another security because doing so could silently violate bounds or
+    alter the solver-selected cardinality.
+    """
+    if notional_vnd <= 0 or board_lot <= 0:
+        raise ValueError("notional_vnd and board_lot must be positive")
+    executed: dict[str, float] = {}
+    shares: dict[str, int] = {}
+    for ticker, weight in target.items():
+        price = float(prices.get(ticker, np.nan))
+        if not np.isfinite(price) or price <= 0:
+            raise ValueError(f"Missing positive execution price for {ticker}")
+        lots = math.floor(float(weight) * notional_vnd / (price * board_lot))
+        quantity = int(lots * board_lot)
+        shares[ticker] = quantity
+        executed[ticker] = quantity * price / notional_vnd
+    invested = float(sum(executed.values()))
+    diagnostics = {
+        "notional_vnd": float(notional_vnd), "board_lot": int(board_lot),
+        "share_quantities": shares, "invested_weight": invested,
+        "cash_residual_weight": max(0.0, 1.0 - invested),
+        "selected_assets_with_positive_shares": sum(quantity > 0 for quantity in shares.values()),
+        "cardinality_preserved": all(quantity > 0 for quantity in shares.values()),
+    }
+    return executed, diagnostics
+
+
 def drift_weights(target: dict[str, float], test_returns: pd.DataFrame) -> dict[str, float]:
     """Carry target weights to the next rebalance after realized asset returns."""
     if not target:
@@ -445,7 +597,8 @@ def drift_weights(target: dict[str, float], test_returns: pd.DataFrame) -> dict[
         raise ValueError("Realized returns must be resolved before weight drift is calculated.")
     growth = (1.0 + aligned).prod(axis=0).to_numpy()
     values = np.asarray([target[name] for name in columns]) * growth
-    total = float(values.sum())
+    residual_cash = max(0.0, 1.0 - float(sum(target.values())))
+    total = float(values.sum() + residual_cash)
     if total <= 0 or not np.isfinite(total):
         return target.copy()
     return {name: float(value / total) for name, value in zip(columns, values) if value > 1e-12}
@@ -467,22 +620,27 @@ def simulate_buy_and_hold(
             "zero imputation is prohibited inside the portfolio simulator."
         )
     weights = np.asarray([target[ticker] for ticker in tickers], dtype=float)
-    weights /= weights.sum()
+    if weights.sum() > 1 + 1e-9:
+        raise ValueError("Target asset weights exceed full investment.")
+    residual_cash = max(0.0, 1.0 - float(weights.sum()))
+    net_scale = max(0.0, 1.0 - float(transaction_cost))
     gross_values = weights.copy()
-    net_values = weights * max(0.0, 1.0 - float(transaction_cost))
+    net_values = weights * net_scale
+    gross_cash = residual_cash
+    net_cash = residual_cash * net_scale
     gross_wealth, net_wealth = [], []
     for row in returns.to_numpy():
         gross_values *= 1.0 + row
         net_values *= 1.0 + row
-        gross_wealth.append(float(gross_values.sum()))
-        net_wealth.append(float(net_values.sum()))
+        gross_wealth.append(float(gross_values.sum() + gross_cash))
+        net_wealth.append(float(net_values.sum() + net_cash))
     gross_wealth = pd.Series(gross_wealth, index=returns.index, name="gross_wealth")
     net_wealth = pd.Series(net_wealth, index=returns.index, name="net_wealth")
     gross_returns = gross_wealth.pct_change()
     net_returns = net_wealth.pct_change()
     gross_returns.iloc[0] = gross_wealth.iloc[0] - 1.0
     net_returns.iloc[0] = net_wealth.iloc[0] - 1.0
-    total = float(net_values.sum())
+    total = float(net_values.sum() + net_cash)
     ending = ({ticker: float(value / total) for ticker, value in zip(tickers, net_values)}
               if total > 0 else target.copy())
     return {
@@ -1303,7 +1461,8 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     folds = make_folds(features["date"], wf["train_months"], wf["validation_months"],
                        wf["test_months"], wf.get("max_folds"),
                        wf.get("embargo_days", cfg.get("target", {}).get("horizon_days", 20)),
-                       wf.get("selection", "evenly_spaced"))
+                       wf.get("selection", "evenly_spaced"),
+                       wf.get("final_holdout_months", 0))
     stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     cfg_hash = hashlib.sha256(config_path.read_bytes()).hexdigest()[:10]
     experiment_id = f"{stamp}-{cfg_hash}"
@@ -1332,6 +1491,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     ablation_rows, sensitivity_rows, fold_audit_rows = [], [], []
     feature_coverage_rows, tuning_rows, aur_diagnostic_rows = [], [], []
     calibration_rows, missing_return_rows, constraint_rows = [], [], []
+    capacity_scenario_rows = []
     previous_weights: dict[str, dict[str, float]] = {
         "full_pipeline_xy_qaoa": {},
     }
@@ -1344,6 +1504,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                                            max(1, representative_count)).round()
     )
     sensitivity_seeds = sensitivity_cfg.get("seeds", cfg["solver"]["seeds"][:1])
+    frozen_model_params: dict[str, int] | None = None
     for fold in folds:
         train, val, test, fold_audit = purged_fold_frames(features, fold)
         fold_audit_rows.append(fold_audit)
@@ -1373,6 +1534,37 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         if len(snap) < cfg["reduction"]["candidate_size"] or test.empty:
             continue
         model_cfg = {**cfg["model"], "seed": cfg.get("seed", 42)}
+        if fold.get("phase") == "final_holdout":
+            if frozen_model_params is None:
+                development_tuning = pd.DataFrame(tuning_rows)
+                if development_tuning.empty:
+                    raise ValueError("Final holdout cannot start before development tuning is frozen.")
+                aggregate = (
+                    development_tuning.groupby(["n_estimators", "max_depth"], as_index=False)
+                    ["validation_rank_ic"].mean().sort_values(
+                        ["validation_rank_ic", "n_estimators", "max_depth"],
+                        ascending=[False, True, True],
+                    )
+                )
+                frozen_model_params = {
+                    "n_estimators": int(aggregate.iloc[0]["n_estimators"]),
+                    "max_depth": int(aggregate.iloc[0]["max_depth"]),
+                }
+                (out / "config_freeze.json").write_text(json.dumps({
+                    "frozen_at": datetime.now(timezone.utc).isoformat(),
+                    "config_sha256": sha256_file(config_path),
+                    "config_hash_short": cfg_hash,
+                    "holdout_start": str(pd.Timestamp(fold["test_start"])),
+                    "holdout_end": str(pd.Timestamp(fold["test_end"])),
+                    "model_params": frozen_model_params,
+                    "frozen_components": [
+                        "feature_set", "model_family", "model_params", "adaptive_universe_reduction",
+                        "qubo", "solver", "constraints", "costs", "hypotheses", "metrics",
+                    ],
+                    "policy": "single_final_holdout_evaluation_no_post_holdout_tuning",
+                }, indent=2), encoding="utf-8")
+            model_cfg.update(frozen_model_params)
+            model_cfg["tuning_enabled"] = False
         bundle = fit_ranker(train, val, model_cfg)
         snap["signal"] = predict(bundle, snap)
         calibration_frame = val.dropna(subset=["target_return_20d"])
@@ -1419,11 +1611,16 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                                  "ewma_signal": row.ewma_signal, "fold_rank_ic": ic,
                                  "xgboost_rank_ic": ic, "ewma_rank_ic": ewma_ic,
                                  "universe_snapshot_time": universe_time})
-        reduced = adaptive_reduce(snap, history, cfg["reduction"])
+        previous_candidates = (
+            set(aur_diagnostic_rows[-1]["selected_tickers"].split("|"))
+            if aur_diagnostic_rows else set()
+        )
+        reduced = adaptive_reduce(
+            snap, history, cfg["reduction"], previous_candidates=previous_candidates,
+        )
         reduced["fold"] = fold["fold"]
         reduced["decision_time"] = snapshot_date
         selected_now = set(reduced.loc[reduced.selected_candidate, "ticker"])
-        previous_candidates = set(aur_diagnostic_rows[-1]["selected_tickers"].split("|")) if aur_diagnostic_rows else set()
         candidate_turnover = (len(selected_now.symmetric_difference(previous_candidates))
                               / max(1, len(selected_now | previous_candidates)))
         aur_diagnostic_rows.append({
@@ -1434,8 +1631,18 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "relative_signal_dispersion": float(reduced["relative_signal_dispersion"].iloc[0]),
             "average_abs_correlation": float(reduced["average_abs_correlation"].iloc[0]),
             "candidate_size_reason": reduced["candidate_size_reason"].iloc[0],
+            "retained_prior_candidates": int(reduced["retained_prior_candidates"].iloc[0]),
             "candidate_turnover": candidate_turnover,
             "selected_tickers": "|".join(sorted(selected_now)),
+            "cluster_concentration": float(
+                reduced.loc[reduced["selected_candidate"], "correlation_cluster"]
+                .value_counts(normalize=True).max()
+            ),
+            "sector_concentration": (
+                float(reduced.loc[reduced["selected_candidate"], "sector"]
+                      .value_counts(normalize=True).max())
+                if "sector" in reduced and reduced["sector"].notna().any() else np.nan
+            ),
         })
         fixed_m = int(reduced["selected_m"].iloc[0])
         fixed_topm = set(snap.nlargest(fixed_m, "signal")["ticker"])
@@ -1464,6 +1671,8 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             "selected_candidate", "decision_reason", "eligible_count", "selected_m",
             "signal_dispersion", "relative_signal_dispersion", "average_abs_correlation",
             "candidate_size_reason",
+            "aur_eligible", "liquidity_floor", "risk_ceiling",
+            "correlation_cluster", "cluster_cap", "sector_candidate_cap",
         ]
         selection_rows.extend(reduced[selection_columns].to_dict("records"))
         candidates = reduced[reduced.selected_candidate]["ticker"].tolist()
@@ -1636,6 +1845,48 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             sector_cap=constraints_cfg.get("sector_cap") if apply_sector_cap else None,
         )
         target = {ticker: float(w) for ticker, w in zip(chosen, weights)}
+        board_lot = int(constraints_cfg.get("board_lot", 1))
+        execution_prices = {
+            ticker: float(selected_snapshot.at[ticker, "close"]) for ticker in chosen
+        }
+        scenario_notionals = constraints_cfg.get(
+            "capacity_scenarios_vnd", [portfolio_notional] if portfolio_notional else []
+        )
+        for scenario_notional in scenario_notionals:
+            if not scenario_notional:
+                continue
+            _, scenario = round_target_weights_to_board_lot(
+                target, execution_prices, float(scenario_notional), board_lot,
+            )
+            capacity_scenario_rows.append({
+                "fold": fold["fold"], "decision_time": snapshot_date,
+                **{key: value for key, value in scenario.items() if key != "share_quantities"},
+                "share_quantities": json.dumps(scenario["share_quantities"], sort_keys=True),
+            })
+        if portfolio_notional and board_lot > 1:
+            target, execution = round_target_weights_to_board_lot(
+                target, execution_prices, float(portfolio_notional), board_lot,
+            )
+            if not execution["cardinality_preserved"]:
+                raise ValueError(
+                    f"Fold {fold['fold']} board-lot execution gives zero shares to a selected asset."
+                )
+            constraint_rows[-1].update({
+                "board_lot": board_lot,
+                "cash_residual_weight": execution["cash_residual_weight"],
+                "executed_cardinality": execution["selected_assets_with_positive_shares"],
+                "solver_cardinality_preserved_after_rounding": execution["cardinality_preserved"],
+            })
+        executed_turnover, _ = portfolio_turnover(previous, target)
+        constraint_rows[-1]["executed_one_way_turnover"] = executed_turnover
+        constraint_rows[-1]["turnover_cap_satisfied_after_rounding"] = (
+            turnover_limit is None or executed_turnover <= float(turnover_limit) + 1e-8
+        )
+        if turnover_limit is not None and executed_turnover > float(turnover_limit) + 1e-8:
+            raise ValueError(
+                f"Fold {fold['fold']} board-lot execution violates hard turnover cap: "
+                f"{executed_turnover:.8f} > {float(turnover_limit):.8f}."
+            )
         test_ret, resolved = prepare_realized_return_panel(
             test, chosen, security_master, research_mode=cfg.get("mode") == "research",
             delisting_return=float(cfg.get("backtest", {}).get("delisting_return", -1.0)),
@@ -1866,8 +2117,14 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                     "transaction_cost": 0.0,
                 })
         if fold["fold"] in sensitivity_fold_ids:
-            for depth in sorted({1, cfg["solver"]["qaoa_depth"], 2}):
-                for shots in sorted({256, cfg["solver"]["shots"]}):
+            declared_depths = cfg["solver"].get(
+                "declared_depth_grid", [1, 2, 3, cfg["solver"]["qaoa_depth"]]
+            )
+            declared_shots = cfg["solver"].get(
+                "declared_shots_grid", [256, 1024, 2048, cfg["solver"]["shots"]]
+            )
+            for depth in sorted({int(value) for value in declared_depths}):
+                for shots in sorted({int(value) for value in declared_shots}):
                     for sensitivity_k in sorted({max(1, k - 1), k}):
                         for noise in (0.0, 0.02):
                             for sensitivity_seed in map(int, sensitivity_seeds):
@@ -2083,6 +2340,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     pd.DataFrame(aur_diagnostic_rows).to_csv(out / "aur_diagnostics.csv", index=False)
     pd.DataFrame(calibration_rows).to_csv(out / "signal_calibration.csv", index=False)
     pd.DataFrame(constraint_rows).to_csv(out / "constraint_diagnostics.csv", index=False)
+    pd.DataFrame(capacity_scenario_rows).to_csv(out / "capacity_scenarios.csv", index=False)
     pd.DataFrame(missing_return_rows, columns=(
         sorted(set().union(*(row.keys() for row in missing_return_rows)))
         if missing_return_rows else ["fold", "window", "ticker", "event", "observations"]
@@ -2101,6 +2359,23 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         metric_rows.append(metrics)
     metrics_df = pd.DataFrame(metric_rows)
     metrics_df.to_csv(out / "metrics_long.csv", index=False)
+    risk_free_sensitivity_rows = []
+    declared_rf_rates = cfg.get("risk_free", {}).get("sensitivity_rates", [])
+    for annual_rate in declared_rf_rates:
+        for strategy, group in returns.groupby("strategy"):
+            strategy_returns = group.sort_values("date").set_index("date")["return"]
+            assumed = pd.Series(
+                float(annual_rate), index=strategy_returns.index, name="risk_free_annual"
+            )
+            row = financial_metrics(strategy_returns, assumed)
+            row.update({
+                "strategy": strategy, "assumed_risk_free_annual": float(annual_rate),
+                "interpretation": "sensitivity_assumption_not_observed_market_series",
+            })
+            risk_free_sensitivity_rows.append(row)
+    pd.DataFrame(risk_free_sensitivity_rows).to_csv(
+        out / "risk_free_sensitivity.csv", index=False
+    )
     cost_summary = cost_ledger.groupby("strategy", as_index=False).agg(
         turnover=("turnover", "sum"), total_cost=("transaction_cost", "sum")
     ) if not cost_ledger.empty else pd.DataFrame(columns=["strategy", "turnover", "total_cost"])
@@ -2223,9 +2498,9 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     for hypothesis in ["H1", "H2", "H3", "H4", "H5"]:
         subset = tests_frame[tests_frame.get("hypothesis", pd.Series(dtype=str)).eq(hypothesis)]
         if subset.empty:
-            status = "insufficient_observations"
+            status = "not_testable_due_to_data"
         elif subset["conclusion"].eq("significant").any():
-            status = "statistically_supported_on_declared_tests"
+            status = "statistically_supported"
         else:
             status = "not_statistically_supported"
         hypothesis_rows.append({
@@ -2235,7 +2510,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         })
     hypothesis_rows.append({
         "hypothesis": "H6",
-        "status": "sensitivity_completed" if sensitivity_rows else "insufficient_observations",
+        "status": "sensitivity_completed" if sensitivity_rows else "not_testable_due_to_data",
         "tests": "declared_sensitivity_grid",
         "interpretation_scope": "no_claim_outside_tested_grid",
     })
@@ -2347,6 +2622,11 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
     )
     actual_oos_start = str(pd.to_datetime(returns["date"]).min().date()) if not returns.empty else None
     actual_oos_end = str(pd.to_datetime(returns["date"]).max().date()) if not returns.empty else None
+    adjustment_contract_path = paths.normalized / "price_adjustment_contract.json"
+    adjustment_metadata = (
+        json.loads(adjustment_contract_path.read_text(encoding="utf-8"))
+        if adjustment_contract_path.exists() else {}
+    )
     manifest = {
         "experiment_id": experiment_id, "status": "success", "mode": cfg.get("mode"),
         "label": cfg["label"],
@@ -2355,6 +2635,13 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         "dataset_hash": sha256_file(paths.normalized / "prices.parquet"),
         "universe_hash": sha256_file(paths.curated / "universe_monthly.parquet"),
         "git_commit": git_commit,
+        "adjustment_version": adjustment_metadata.get(
+            "adjustment_version", cfg.get("data", {}).get("adjustment_version", "unknown")
+        ),
+        "adjustment_contract_sha256": (
+            sha256_file(adjustment_contract_path) if adjustment_contract_path.exists() else None
+        ),
+        "audit_status": leak.get("status"),
         "requested_data_start": cfg.get("data", {}).get("start"),
         "requested_data_end": cfg.get("data", {}).get("end"),
         "actual_data_start": quality.get("start"), "actual_data_end": quality.get("end"),
@@ -2461,6 +2748,18 @@ def create_report(out: Path, cfg: dict, quality: dict, leak: dict, metrics: pd.D
         )
     lines = [
         f"# {title}", "", f"> **{label}**", "",
+        "| Report field | Value |", "|---|---|",
+        f"| Experiment ID | `{manifest.get('experiment_id')}` |",
+        f"| Dataset hash | `{manifest.get('dataset_hash')}` |",
+        f"| Adjustment version | `{manifest.get('adjustment_version')}` |",
+        f"| Config hash | `{manifest.get('config_hash')}` |",
+        f"| Git commit | `{manifest.get('git_commit')}` |",
+        f"| Created at | `{manifest.get('created_at')}` |",
+        f"| Mode | `{manifest.get('mode')}` |",
+        f"| Research/exploratory label | `{manifest.get('label')}` |",
+        f"| Folds | `{manifest.get('folds_completed')}/{manifest.get('folds_requested')}` |",
+        f"| OOS start/end | `{manifest.get('actual_oos_start')}` / `{manifest.get('actual_oos_end')}` |",
+        f"| Audit status | `{manifest.get('audit_status')}` |", "",
         "## Scope", "",
         scope,
         "", "## Data validation", "", f"- Quality: `{quality['status']}`",

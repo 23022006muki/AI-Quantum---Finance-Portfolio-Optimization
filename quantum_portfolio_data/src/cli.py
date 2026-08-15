@@ -31,6 +31,12 @@ from .sources import (
     crawl_world_bank_vietnam_snapshot,
     crawl_cafef_standalone_workspace,
 )
+from .corporate_actions import crawl_corporate_actions
+from .price_adjustment import (
+    build_price_adjustment_v2, build_return_only_adjustment_counterfactual,
+    prepare_research_v2_runtime,
+)
+from .universe_pit import build_historical_universe_pit
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -186,6 +192,41 @@ def parser() -> argparse.ArgumentParser:
     )
     world_bank.add_argument("--from-year", type=int, default=2015)
     world_bank.add_argument("--to-year", type=int, default=2025)
+    actions = sub.add_parser(
+        "crawl-corporate-actions",
+        help="Collect VSDC official notices and CafeF ex-date corroboration into research_v2",
+    )
+    actions.add_argument("--from", dest="start", default="2020-01-01")
+    actions.add_argument("--to", dest="end", default="2025-12-31")
+    actions.add_argument("--tickers", default="auto")
+    actions.add_argument("--max-workers", type=int, default=3)
+    actions.add_argument("--pause-seconds", type=float, default=0.20)
+    sub.add_parser(
+        "build-price-adjustment-v2",
+        help="Build raw/source-adjusted/research-total-return candidate and its fail-closed audit",
+    )
+    universe_v2 = sub.add_parser(
+        "build-universe-pit-v2",
+        help="Build the isolated monthly historical HOSE universe from prior-only data",
+    )
+    universe_v2.add_argument("--from", dest="start", default="2020-01-01")
+    universe_v2.add_argument("--to", dest="end", default="2025-12-31")
+    universe_v2.add_argument("--lookback-days", type=int, default=90)
+    universe_v2.add_argument("--minimum-observations", type=int, default=40)
+    sub.add_parser(
+        "adjustment-counterfactual",
+        help="Reprice frozen Data A holdings using raw, source-adjusted and research returns",
+    )
+    research_v2 = sub.add_parser(
+        "run-research-v2",
+        help=(
+            "Stage and run the isolated confirmatory pipeline only after the "
+            "adjustment and total-return benchmark gates pass"
+        ),
+    )
+    research_v2.add_argument(
+        "--config", type=Path, default=ROOT / "configs" / "hose_research_v2.yaml"
+    )
     sub.add_parser("audit-data-sources", help="Write the current source and research-data gap inventory")
     return p
 
@@ -473,6 +514,38 @@ def main(argv=None) -> int:
     elif args.command == "crawl-world-bank":
         result = crawl_world_bank_vietnam_snapshot(paths, args.from_year, args.to_year)
         print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "crawl-corporate-actions":
+        requested = None if args.tickers.strip().lower() == "auto" else args.tickers.split(",")
+        result = crawl_corporate_actions(
+            paths, args.start, args.end, requested, args.max_workers, args.pause_seconds,
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "build-price-adjustment-v2":
+        result = build_price_adjustment_v2(paths)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        if result["status"] == "blocked":
+            raise SystemExit(2)
+    elif args.command == "build-universe-pit-v2":
+        result = build_historical_universe_pit(
+            paths, args.start, args.end, args.lookback_days, args.minimum_observations,
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "adjustment-counterfactual":
+        result = build_return_only_adjustment_counterfactual(paths)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "run-research-v2":
+        try:
+            runtime_root = prepare_research_v2_runtime(paths)
+        except RuntimeError as exc:
+            raise SystemExit(f"RESEARCH_V2_BLOCKED: {exc}") from exc
+        temporary_out = run_experiment(runtime_root, args.config.resolve())
+        experiments = ROOT / "outputs" / "research_v2" / "experiments"
+        experiments.mkdir(parents=True, exist_ok=True)
+        out = experiments / temporary_out.name
+        if out.exists():
+            raise RuntimeError(f"Research V2 artifact already exists: {out}")
+        shutil.copytree(temporary_out, out)
+        print_experiment_summary(out)
     elif args.command == "audit-data-sources":
         print(json.dumps(audit_available_data_sources(paths), indent=2, ensure_ascii=False))
     elif args.command == "run-experiment":

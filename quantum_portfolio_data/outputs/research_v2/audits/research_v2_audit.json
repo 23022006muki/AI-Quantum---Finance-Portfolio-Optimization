@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-08-15T06:04:25.712156+00:00",
+  "status": "blocked_valid",
+  "confirmatory_run_authorized": false,
+  "checks": {
+    "frozen_data_a": {
+      "passed": true,
+      "files": 49,
+      "path": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\Data A\\outputs\\experiments\\20260813T164535-21c9b569ce"
+    },
+    "method_contract": {
+      "passed": true,
+      "path": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\docs\\contracts\\price_adjustment_contract.v2.json"
+    },
+    "corporate_action_ledger": {
+      "passed": true,
+      "records": 2655,
+      "tickers": 394,
+      "verified_cross_source": 1698,
+      "sha256": "6134dfcefe4bcd22696b215d852cd19d85fd7e399d1107f2c700d12fb82cf92f"
+    },
+    "price_adjustment_artifact": {
+      "passed": true,
+      "gate_status": "blocked",
+      "research_eligible": false,
+      "path": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\research_v2\\reports\\price_adjustment_audit.json"
+    },
+    "return_only_counterfactual": {
+      "passed": true,
+      "path": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\research_v2\\reports\\ADJUSTMENT_CAUSAL_COMPARISON.md"
+    },
+    "historical_universe_pit": {
+      "passed": true,
+      "gate_status": "partial_blocked",
+      "whole_sample_completeness_filter_used": false,
+      "path": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\research_v2\\curated\\universe_monthly_pit.parquet"
+    },
+    "verified_total_return_benchmark": {
+      "passed": false,
+      "path": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\normalized\\benchmark.parquet"
+    }
+  },
+  "blockers": [
+    "price_adjustment_gate_not_passed",
+    "verified_total_return_benchmark_missing"
+  ]
+}

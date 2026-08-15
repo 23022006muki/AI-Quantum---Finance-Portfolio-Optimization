@@ -12,6 +12,7 @@ from src.research import (
     aligned_previous_weights, attach_point_in_time_features, build_features, drift_weights,
     energy, ewma_mean_cov, exact_solver, feasible_states, optimize_weights,
     penalty_qaoa_statevector, portfolio_turnover, qubo_instance, run_experiment,
+    round_target_weights_to_board_lot, simulate_buy_and_hold,
     xy_qaoa_statevector,
 )
 
@@ -156,6 +157,24 @@ def test_weights_drift_between_rebalances():
     drifted = drift_weights(target, realized)
     assert np.isclose(sum(drifted.values()), 1.0)
     assert drifted["AAA"] > 0.5
+
+
+def test_board_lot_rounding_preserves_positive_selected_assets_and_cash_residual():
+    executed, diagnostics = round_target_weights_to_board_lot(
+        {"AAA": 0.55, "BBB": 0.45}, {"AAA": 10_000, "BBB": 25_000},
+        notional_vnd=100_000_000, board_lot=100,
+    )
+    assert diagnostics["cardinality_preserved"]
+    assert all(quantity % 100 == 0 for quantity in diagnostics["share_quantities"].values())
+    assert 0 <= diagnostics["cash_residual_weight"] < 1
+    assert sum(executed.values()) + diagnostics["cash_residual_weight"] == pytest.approx(1.0)
+
+
+def test_buy_and_hold_does_not_silently_reinvest_board_lot_cash():
+    returns = pd.DataFrame({"AAA": [0.10], "BBB": [0.0]})
+    result = simulate_buy_and_hold({"AAA": 0.4, "BBB": 0.4}, returns)
+    # 20% remains cash, hence portfolio gross return is 4%, not 5%.
+    assert result["gross_returns"].iloc[0] == pytest.approx(0.04)
 
 
 def test_financial_features_join_on_publication_availability(tmp_path: Path):

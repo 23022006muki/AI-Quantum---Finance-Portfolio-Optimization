@@ -2103,6 +2103,14 @@ def audit_available_data_sources(paths: Paths) -> dict:
         "financial_statements": paths.normalized / "financial_statements.parquet",
         "foreign_flow": paths.normalized / "foreign_flow.parquet",
         "index_membership": paths.normalized / "index_membership.parquet",
+        "research_v2_corporate_actions": (
+            paths.root / "outputs" / "research_v2" / "normalized" /
+            "corporate_actions.parquet"
+        ),
+        "research_v2_total_return_candidate": (
+            paths.root / "outputs" / "research_v2" / "normalized" /
+            "prices_total_return.parquet"
+        ),
     }
     datasets: dict[str, Any] = {}
     for name, path in files.items():
@@ -2126,9 +2134,24 @@ def audit_available_data_sources(paths: Paths) -> dict:
         },
         {
             "source": "VSDC public notices", "role": "corporate-action evidence",
-            "access": "public notices", "usable_now": False,
-            "limitation": "no verified bulk API contract/parser in this repository; event terms require normalization",
+            "access": "public notices", "usable_now": True,
+            "limitation": (
+                "official event terms are parsed, but confirmatory use still requires "
+                "independent ex-date corroboration and zero unresolved material events"
+            ),
             "url": "https://www.vsd.vn/",
+        },
+        {
+            "source": "Vietstock Finance", "role": "authenticated OHLCV cross-check",
+            "access": "public page plus session-bound authenticated requests",
+            "usable_now": bool(
+                os.getenv("VIETSTOCK_COOKIE_FILE") or os.getenv("VIETSTOCK_AUTH_HEADER_FILE")
+            ),
+            "limitation": (
+                None if (os.getenv("VIETSTOCK_COOKIE_FILE") or os.getenv("VIETSTOCK_AUTH_HEADER_FILE"))
+                else "no reusable cookie/header file configured; no credential is guessed or persisted"
+            ),
+            "url": VietstockAdapter.base_url,
         },
         {
             "source": "SSI FastConnect", "role": "official broker OHLC and index components",
@@ -2165,6 +2188,15 @@ def audit_available_data_sources(paths: Paths) -> dict:
             "access": "public website endpoint", "usable_now": True,
             "limitation": "aggregated reference data; not exchange-official and adjustment semantics remain uncertified",
             "url": "https://cafef.vn/du-lieu/lich-su-giao-dich-hose/all-1.chn",
+        },
+        {
+            "source": "CafeF corporate-action history", "role": "independent ex-date corroboration",
+            "access": "public website", "usable_now": True,
+            "limitation": (
+                "used to corroborate VSDC events, not treated as an exchange-official source "
+                "or as a standalone adjustment authority"
+            ),
+            "url": "https://cafef.vn/du-lieu/",
         },
         {
             "source": "IMF SDMX", "role": "international macroeconomic series",

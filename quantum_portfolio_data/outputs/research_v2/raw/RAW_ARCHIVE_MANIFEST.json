@@ -1,0 +1,10 @@
+{
+  "created_at": "2026-08-15T06:01:39.555504+00:00",
+  "source_directory": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\research_v2\\raw\\corporate_actions",
+  "archive": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\research_v2\\raw\\corporate_actions_raw_archive.zip",
+  "file_count": 4825,
+  "uncompressed_bytes": 355096782,
+  "archive_bytes": 61755115,
+  "archive_sha256": "fc9a51f52b1731583faecf8bbf362f0fe61934578eaf2b009fbeed98e4b0e779",
+  "note": "Public raw HTML and checkpoint payloads; no cookies, tokens or credentials."
+}

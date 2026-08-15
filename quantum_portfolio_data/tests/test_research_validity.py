@@ -121,6 +121,19 @@ def test_limited_folds_are_evenly_spread_across_oos_period():
     assert folds[0]["test_start"] < pd.Timestamp("2024-01-01")
 
 
+def test_continuous_development_folds_end_before_single_final_holdout():
+    dates = pd.Series(pd.bdate_range("2020-01-01", "2025-12-31"))
+    folds = make_folds(
+        dates, 24, 3, 1, None, 20, "all", final_holdout_months=12,
+    )
+    holdout = [fold for fold in folds if fold["phase"] == "final_holdout"]
+    development = [fold for fold in folds if fold["phase"] == "development"]
+    assert len(holdout) == 1
+    assert development
+    assert all(fold["test_end"] <= holdout[0]["test_start"] for fold in development)
+    assert holdout[0]["test_end"] == dates.max()
+
+
 def test_fold_feature_coverage_drops_fully_missing_columns():
     rng = np.random.default_rng(3)
     train = pd.DataFrame({feature: np.nan for feature in FEATURES}, index=range(40))
@@ -163,6 +176,20 @@ def test_aur_respects_qubit_budget_and_emits_diagnostics():
     assert 3 <= reduced.selected_candidate.sum() <= 6
     assert {"selected_m", "signal_dispersion", "average_abs_correlation",
             "candidate_size_reason"} <= set(reduced.columns)
+
+
+def test_aur_retains_declared_prior_candidates_without_future_data():
+    snapshot, history = _aur_inputs()
+    prior = {"A", "B", "C"}
+    reduced = adaptive_reduce(snapshot, history, {
+        "candidate_size": 6, "min_candidate_size": 6, "max_candidate_size": 6,
+        "qubit_budget": 6, "cardinality": 3, "signal_weight": 0.55,
+        "liquidity_weight": 0.2, "risk_weight": 0.15, "correlation_penalty": 0.1,
+        "minimum_candidate_retention": 2, "stability_weight": 0.25,
+    }, previous_candidates=prior)
+    selected = set(reduced.loc[reduced["selected_candidate"], "ticker"])
+    assert len(selected & prior) >= 2
+    assert int(reduced["retained_prior_candidates"].iloc[0]) >= 2
 
 
 def test_qubo_ising_energy_equivalence():
@@ -395,6 +422,12 @@ def test_successful_research_mode_run_is_auditable_and_tamper_evident(tmp_path: 
     script = Path(__file__).parents[1] / "scripts" / "audit_research_run.py"
     completed = subprocess.run([sys.executable, str(script), str(out)], capture_output=True, text=True)
     assert completed.returncode == 0, completed.stdout + completed.stderr
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    report = (out / "RESEARCH_REPORT.md").read_text(encoding="utf-8")
+    assert f"| Experiment ID | `{manifest['experiment_id']}` |" in report
+    assert f"| Dataset hash | `{manifest['dataset_hash']}` |" in report
+    assert f"| Config hash | `{manifest['config_hash']}` |" in report
+    assert f"| Folds | `{manifest['folds_completed']}/{manifest['folds_requested']}` |" in report
     metrics = out / "metrics_long.csv"
     metrics.write_text(metrics.read_text(encoding="utf-8") + "\n", encoding="utf-8")
     tampered = subprocess.run([sys.executable, str(script), str(out)], capture_output=True, text=True)

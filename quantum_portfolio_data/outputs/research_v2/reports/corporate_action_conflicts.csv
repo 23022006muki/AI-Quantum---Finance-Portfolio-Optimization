@@ -1,0 +1,563 @@
+ticker,event_type,record_date,ex_date,reason,source_url,corroboration_url
+AAA,STOCK_DIVIDEND,2020-10-20,2020-10-19,material event terms incomplete,https://www.vsd.vn/vi/ad/75396,https://cafef.vn/du-lieu/aaa/thong-tin-chung.chn
+ABR,CASH_DIVIDEND,2024-10-31,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/176004,
+ABS,CASH_DIVIDEND,2020-06-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/68770,
+ABT,CASH_DIVIDEND,2025-03-18,2025-03-17,material event terms incomplete,https://www.vsd.vn/vi/ad/179631,https://cafef.vn/du-lieu/abt/thong-tin-chung.chn
+ABT,CASH_DIVIDEND,2023-03-15,2023-03-14,material event terms incomplete,https://www.vsd.vn/vi/ad/156864,https://cafef.vn/du-lieu/abt/thong-tin-chung.chn
+ABT,CASH_DIVIDEND,2022-01-20,2022-01-19,material event terms incomplete,https://www.vsd.vn/vi/ad/146966,https://cafef.vn/du-lieu/abt/thong-tin-chung.chn
+ABT,CASH_DIVIDEND,2021-01-25,2021-01-22,material event terms incomplete,https://www.vsd.vn/vi/ad/77600,https://cafef.vn/du-lieu/abt/thong-tin-chung.chn
+ABT,CASH_DIVIDEND,2020-03-20,2020-03-19,material event terms incomplete,https://www.vsd.vn/vi/ad/64773,https://cafef.vn/du-lieu/abt/thong-tin-chung.chn
+ACB,BONUS_SHARE,2025-05-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/182839,
+ACB,BONUS_SHARE,2024-06-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/171314,
+ACB,BONUS_SHARE,2023-06-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/159023,
+ACB,BONUS_SHARE,2022-06-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/150949,
+ACB,BONUS_SHARE,2021-06-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/142250,
+ACB,BONUS_SHARE,2020-08-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/71114,
+ACC,RIGHTS_ISSUE,2022-01-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/146896,
+ACC,RIGHTS_ISSUE,2020-11-17,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76056,
+ACG,CASH_DIVIDEND,2024-11-07,2024-11-06,material event terms incomplete,https://www.vsd.vn/vi/ad/176161,https://cafef.vn/du-lieu/acg/thong-tin-chung.chn
+ACG,STOCK_DIVIDEND,2023-07-19,2023-07-19,material event terms incomplete,https://www.vsd.vn/vi/ad/159936,https://cafef.vn/du-lieu/acg/thong-tin-chung.chn
+ACG,CASH_DIVIDEND,2022-10-17,2022-10-14,material event terms incomplete,https://www.vsd.vn/vi/ad/153676,https://cafef.vn/du-lieu/acg/thong-tin-chung.chn
+ACL,CASH_DIVIDEND,2021-12-24,2021-12-23,material event terms incomplete,https://www.vsd.vn/vi/ad/146252,https://cafef.vn/du-lieu/acl/thong-tin-chung.chn
+ADS,RIGHTS_ISSUE,2021-10-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145194,
+AGG,STOCK_DIVIDEND,2024-08-08,2024-08-07,material event terms incomplete,https://www.vsd.vn/vi/ad/173334,https://cafef.vn/du-lieu/agg/thong-tin-chung.chn
+AGG,RIGHTS_ISSUE,2022-01-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148425,
+AGG,RIGHTS_ISSUE,2022-01-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147268,
+AGG,STOCK_DIVIDEND,2020-08-28,2020-08-27,material event terms incomplete,https://www.vsd.vn/vi/ad/71094,https://cafef.vn/du-lieu/agg/thong-tin-chung.chn
+AGM,CASH_DIVIDEND,2020-07-20,2020-07-17,material event terms incomplete,https://www.vsd.vn/vi/ad/69830,https://cafef.vn/du-lieu/agm/thong-tin-chung.chn
+ANV,CASH_DIVIDEND,2024-10-14,2024-10-11,material event terms incomplete,https://www.vsd.vn/vi/ad/174794,https://cafef.vn/du-lieu/anv/thong-tin-chung.chn
+ANV,CASH_DIVIDEND,2023-10-31,2023-10-30,material event terms incomplete,https://www.vsd.vn/vi/ad/162192,https://cafef.vn/du-lieu/anv/thong-tin-chung.chn
+ANV,CASH_DIVIDEND,2022-11-01,2022-10-31,material event terms incomplete,https://www.vsd.vn/vi/ad/153642,https://cafef.vn/du-lieu/anv/thong-tin-chung.chn
+ANV,CASH_DIVIDEND,2021-11-26,2021-11-25,material event terms incomplete,https://www.vsd.vn/vi/ad/145632,https://cafef.vn/du-lieu/anv/thong-tin-chung.chn
+ANV,CASH_DIVIDEND,2020-12-04,2020-12-03,material event terms incomplete,https://www.vsd.vn/vi/ad/76091,https://cafef.vn/du-lieu/anv/thong-tin-chung.chn
+ANV,CASH_DIVIDEND,2020-04-20,2020-04-17,material event terms incomplete,https://www.vsd.vn/vi/ad/66382,https://cafef.vn/du-lieu/anv/thong-tin-chung.chn
+APG,RIGHTS_ISSUE,2021-12-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/146172,
+APG,RIGHTS_ISSUE,2021-06-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/142534,
+APH,RIGHTS_ISSUE,2021-03-04,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/138990,
+ASG,RIGHTS_ISSUE,2024-01-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/166645,
+ASG,CASH_DIVIDEND,2020-02-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/62866,
+ASG,RIGHTS_ISSUE,2020-02-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/62866,
+BAF,RIGHTS_ISSUE,2024-05-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/170778,
+BCE,CASH_DIVIDEND,2022-10-12,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/153572,
+BCE,CASH_DIVIDEND,2021-07-16,2021-07-15,material event terms incomplete,https://www.vsd.vn/vi/ad/142918,https://cafef.vn/du-lieu/bce/thong-tin-chung.chn
+BCE,CASH_DIVIDEND,2020-09-04,2020-09-03,material event terms incomplete,https://www.vsd.vn/vi/ad/71466,https://cafef.vn/du-lieu/bce/thong-tin-chung.chn
+BFC,CASH_DIVIDEND,2025-06-12,2025-06-11,material event terms incomplete,https://www.vsd.vn/vi/ad/183342,https://cafef.vn/du-lieu/bfc/thong-tin-chung.chn
+BFC,CASH_DIVIDEND,2020-11-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76041,
+BFC,CASH_DIVIDEND,2020-06-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/68854,
+BHN,CASH_DIVIDEND,2021-02-19,2021-02-18,"term conflict official=1380, reference=2830",https://www.vsd.vn/vi/ad/138467,https://cafef.vn/du-lieu/bhn/thong-tin-chung.chn
+BIC,CASH_DIVIDEND,2025-09-10,2025-09-09,material event terms incomplete,https://www.vsd.vn/vi/ad/185990,https://cafef.vn/du-lieu/bic/thong-tin-chung.chn
+BMC,CASH_DIVIDEND,2025-07-25,2025-07-24,material event terms incomplete,https://www.vsd.vn/vi/ad/184844,https://cafef.vn/du-lieu/bmc/thong-tin-chung.chn
+BMC,CASH_DIVIDEND,2022-01-19,2022-01-18,material event terms incomplete,https://www.vsd.vn/vi/ad/147069,https://cafef.vn/du-lieu/bmc/thong-tin-chung.chn
+BMC,CASH_DIVIDEND,2020-07-14,2020-07-13,material event terms incomplete,https://www.vsd.vn/vi/ad/69425,https://cafef.vn/du-lieu/bmc/thong-tin-chung.chn
+BMI,STOCK_DIVIDEND,2024-10-04,2024-10-03,material event terms incomplete,https://www.vsd.vn/vi/ad/175128,https://cafef.vn/du-lieu/bmi/thong-tin-chung.chn
+BMI,STOCK_DIVIDEND,2023-10-13,2023-10-12,material event terms incomplete,https://www.vsd.vn/vi/ad/162297,https://cafef.vn/du-lieu/bmi/thong-tin-chung.chn
+BRC,CASH_DIVIDEND,2024-08-06,2024-08-05,material event terms incomplete,https://www.vsd.vn/vi/ad/173195,https://cafef.vn/du-lieu/brc/thong-tin-chung.chn
+BSI,STOCK_DIVIDEND,2024-07-10,2024-07-09,material event terms incomplete,https://www.vsd.vn/vi/ad/172116,https://cafef.vn/du-lieu/bsi/thong-tin-chung.chn
+BSI,BONUS_SHARE,2023-07-06,2023-07-05,"term conflict official=0.05, reference=0.03",https://www.vsd.vn/vi/ad/159388,https://cafef.vn/du-lieu/bsi/thong-tin-chung.chn
+BTT,CASH_DIVIDEND,2020-08-27,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/71211,
+BVH,CASH_DIVIDEND,2025-11-17,2025-11-14,"term conflict official=1055.1, reference=1.0551e+06",https://www.vsd.vn/vi/ad/188869,https://cafef.vn/du-lieu/bvh/thong-tin-chung.chn
+BVH,CASH_DIVIDEND,2024-11-20,2024-11-19,"term conflict official=1003.7, reference=1.0037e+06",https://www.vsd.vn/vi/ad/176556,https://cafef.vn/du-lieu/bvh/thong-tin-chung.chn
+BVH,CASH_DIVIDEND,2022-11-28,2022-11-25,"term conflict official=3026.1, reference=3.0261e+06",https://www.vsd.vn/vi/ad/154470,https://cafef.vn/du-lieu/bvh/thong-tin-chung.chn
+BVH,CASH_DIVIDEND,2021-11-09,2021-11-08,"term conflict official=898.5, reference=898500",https://www.vsd.vn/vi/ad/145636,https://cafef.vn/du-lieu/bvh/thong-tin-chung.chn
+C32,CASH_DIVIDEND,2023-05-17,2023-05-16,material event terms incomplete,https://www.vsd.vn/vi/ad/158337,https://cafef.vn/du-lieu/c32/thong-tin-chung.chn
+C32,CASH_DIVIDEND,2020-11-18,2020-11-17,material event terms incomplete,https://www.vsd.vn/vi/ad/75875,https://cafef.vn/du-lieu/c32/thong-tin-chung.chn
+C32,CASH_DIVIDEND,2020-08-18,2020-08-17,material event terms incomplete,https://www.vsd.vn/vi/ad/70879,https://cafef.vn/du-lieu/c32/thong-tin-chung.chn
+C47,STOCK_DIVIDEND,2023-11-30,2023-11-29,material event terms incomplete,https://www.vsd.vn/vi/ad/164808,https://cafef.vn/du-lieu/c47/thong-tin-chung.chn
+C47,RIGHTS_ISSUE,2022-10-17,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/153719,
+C47,STOCK_DIVIDEND,2021-09-06,2021-09-01,material event terms incomplete,https://www.vsd.vn/vi/ad/144033,https://cafef.vn/du-lieu/c47/thong-tin-chung.chn
+C47,STOCK_DIVIDEND,2021-01-06,2021-01-05,material event terms incomplete,https://www.vsd.vn/vi/ad/77145,https://cafef.vn/du-lieu/c47/thong-tin-chung.chn
+CDC,RIGHTS_ISSUE,2025-03-31,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/180893,
+CII,RIGHTS_ISSUE,2023-10-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164081,
+CII,SHARE_CONVERSION,2023-10-16,2023-10-13,material event terms incomplete,https://www.vsd.vn/vi/ad/164081,https://cafef.vn/du-lieu/cii/thong-tin-chung.chn
+CII,RIGHTS_ISSUE,2023-10-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/162617,
+CII,SHARE_CONVERSION,2023-10-16,2023-10-13,material event terms incomplete,https://www.vsd.vn/vi/ad/162617,https://cafef.vn/du-lieu/cii/thong-tin-chung.chn
+CII,RIGHTS_ISSUE,2023-10-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/162349,
+CII,SHARE_CONVERSION,2023-10-16,2023-10-13,material event terms incomplete,https://www.vsd.vn/vi/ad/162349,https://cafef.vn/du-lieu/cii/thong-tin-chung.chn
+CII,RIGHTS_ISSUE,2020-10-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/74407,
+CII,SHARE_CONVERSION,2020-10-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/74407,
+CKG,RIGHTS_ISSUE,2025-05-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/182079,
+CKG,STOCK_DIVIDEND,2025-05-06,2025-05-05,material event terms incomplete,https://www.vsd.vn/vi/ad/182070,https://cafef.vn/du-lieu/ckg/thong-tin-chung.chn
+CKG,STOCK_DIVIDEND,2022-10-20,2022-10-19,material event terms incomplete,https://www.vsd.vn/vi/ad/153675,https://cafef.vn/du-lieu/ckg/thong-tin-chung.chn
+CKG,RIGHTS_ISSUE,2021-01-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77633,
+CMG,BONUS_SHARE,2023-12-06,2023-12-05,"term conflict official=0.06, reference=0.202",https://www.vsd.vn/vi/ad/164314,https://cafef.vn/du-lieu/cmg/thong-tin-chung.chn
+CMG,BONUS_SHARE,2022-09-13,2022-09-12,"term conflict official=0.13, reference=0.2462",https://www.vsd.vn/vi/ad/152983,https://cafef.vn/du-lieu/cmg/thong-tin-chung.chn
+CMV,RIGHTS_ISSUE,2021-01-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77499,
+CMX,RIGHTS_ISSUE,2021-08-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143460,
+CMX,RIGHTS_ISSUE,2020-02-12,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/62846,
+CNG,CASH_DIVIDEND,2020-09-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/73651,
+COM,CASH_DIVIDEND,2025-03-18,2025-03-17,material event terms incomplete,https://www.vsd.vn/vi/ad/179581,https://cafef.vn/du-lieu/com/thong-tin-chung.chn
+COM,CASH_DIVIDEND,2022-12-19,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/155001,
+COM,CASH_DIVIDEND,2022-03-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147943,
+CRC,STOCK_DIVIDEND,2025-06-16,2025-06-13,material event terms incomplete,https://www.vsd.vn/vi/ad/183631,https://cafef.vn/du-lieu/crc/thong-tin-chung.chn
+CRC,RIGHTS_ISSUE,2024-03-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/167671,
+CRC,RIGHTS_ISSUE,2021-09-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/144073,
+CRE,RIGHTS_ISSUE,2022-08-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/152123,
+CRE,RIGHTS_ISSUE,2021-09-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/144282,
+CRV,RIGHTS_ISSUE,2025-12-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189494,
+CRV,CASH_DIVIDEND,2025-07-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/184841,
+CRV,CASH_DIVIDEND,2025-02-05,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/178724,
+CRV,CASH_DIVIDEND,2024-03-12,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/168206,
+CRV,CASH_DIVIDEND,2023-11-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164601,
+CRV,CASH_DIVIDEND,2023-08-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/160381,
+CRV,CASH_DIVIDEND,2022-12-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/154674,
+CRV,CASH_DIVIDEND,2022-07-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151916,
+CRV,RIGHTS_ISSUE,2022-03-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148504,
+CSV,CASH_DIVIDEND,2023-12-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165223,
+CSV,CASH_DIVIDEND,2023-06-05,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/158930,
+CTD,CASH_DIVIDEND,2024-12-25,2024-12-24,material event terms incomplete,https://www.vsd.vn/vi/ad/177474,https://cafef.vn/du-lieu/ctd/thong-tin-chung.chn
+CTF,STOCK_DIVIDEND,2022-07-13,2022-07-12,material event terms incomplete,https://www.vsd.vn/vi/ad/151742,https://cafef.vn/du-lieu/ctf/thong-tin-chung.chn
+CTF,RIGHTS_ISSUE,2020-12-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76958,
+CTG,CASH_DIVIDEND,2023-12-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164888,
+CTG,STOCK_DIVIDEND,2021-07-08,2021-07-07,"term conflict official=0.290695, reference=290.69",https://www.vsd.vn/vi/ad/142790,https://cafef.vn/du-lieu/ctg/thong-tin-chung.chn
+CTS,STOCK_DIVIDEND,2022-08-25,2022-08-24,material event terms incomplete,https://www.vsd.vn/vi/ad/152547,https://cafef.vn/du-lieu/cts/thong-tin-chung.chn
+CTS,STOCK_DIVIDEND,2022-03-29,2022-03-28,material event terms incomplete,https://www.vsd.vn/vi/ad/149267,https://cafef.vn/du-lieu/cts/thong-tin-chung.chn
+CVT,CASH_DIVIDEND,2020-08-20,2020-08-19,material event terms incomplete,https://www.vsd.vn/vi/ad/70926,https://cafef.vn/du-lieu/cvt/thong-tin-chung.chn
+D2D,CASH_DIVIDEND,2020-09-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/72925,
+DAG,RIGHTS_ISSUE,2021-04-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/140654,
+DAT,STOCK_DIVIDEND,2024-07-02,2024-07-01,material event terms incomplete,https://www.vsd.vn/vi/ad/172285,https://cafef.vn/du-lieu/dat/thong-tin-chung.chn
+DAT,STOCK_DIVIDEND,2022-08-10,2022-08-09,material event terms incomplete,https://www.vsd.vn/vi/ad/152296,https://cafef.vn/du-lieu/dat/thong-tin-chung.chn
+DAT,STOCK_DIVIDEND,2022-01-20,2022-01-19,material event terms incomplete,https://www.vsd.vn/vi/ad/147228,https://cafef.vn/du-lieu/dat/thong-tin-chung.chn
+DBC,RIGHTS_ISSUE,2024-07-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/172777,
+DBC,STOCK_DIVIDEND,2022-06-23,2022-06-22,material event terms incomplete,https://www.vsd.vn/vi/ad/151330,https://cafef.vn/du-lieu/dbc/thong-tin-chung.chn
+DBC,CASH_DIVIDEND,2020-04-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/66375,
+DBD,STOCK_DIVIDEND,2024-06-20,2024-06-19,material event terms incomplete,https://www.vsd.vn/vi/ad/171690,https://cafef.vn/du-lieu/dbd/thong-tin-chung.chn
+DBD,STOCK_DIVIDEND,2022-06-10,2022-06-09,material event terms incomplete,https://www.vsd.vn/vi/ad/150958,https://cafef.vn/du-lieu/dbd/thong-tin-chung.chn
+DBD,STOCK_DIVIDEND,2021-06-15,2021-06-14,material event terms incomplete,https://www.vsd.vn/vi/ad/142288,https://cafef.vn/du-lieu/dbd/thong-tin-chung.chn
+DBD,CASH_DIVIDEND,2020-03-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/64767,
+DBT,STOCK_DIVIDEND,2024-07-08,2024-07-05,material event terms incomplete,https://www.vsd.vn/vi/ad/172395,https://cafef.vn/du-lieu/dbt/thong-tin-chung.chn
+DBT,STOCK_DIVIDEND,2023-01-31,2023-01-30,material event terms incomplete,https://www.vsd.vn/vi/ad/155712,https://cafef.vn/du-lieu/dbt/thong-tin-chung.chn
+DC4,RIGHTS_ISSUE,2025-01-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/178284,
+DC4,STOCK_DIVIDEND,2024-06-28,2024-06-27,material event terms incomplete,https://www.vsd.vn/vi/ad/172076,https://cafef.vn/du-lieu/dc4/thong-tin-chung.chn
+DC4,STOCK_DIVIDEND,2022-06-10,2022-06-09,material event terms incomplete,https://www.vsd.vn/vi/ad/151080,https://cafef.vn/du-lieu/dc4/thong-tin-chung.chn
+DC4,STOCK_DIVIDEND,2021-07-12,2021-07-09,material event terms incomplete,https://www.vsd.vn/vi/ad/142779,https://cafef.vn/du-lieu/dc4/thong-tin-chung.chn
+DGC,CASH_DIVIDEND,2023-12-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164989,
+DHA,CASH_DIVIDEND,2023-06-09,2023-06-08,material event terms incomplete,https://www.vsd.vn/vi/ad/159114,https://cafef.vn/du-lieu/dha/thong-tin-chung.chn
+DHA,CASH_DIVIDEND,2023-01-04,2023-01-03,material event terms incomplete,https://www.vsd.vn/vi/ad/155357,https://cafef.vn/du-lieu/dha/thong-tin-chung.chn
+DHG,CASH_DIVIDEND,2022-04-04,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149278,
+DIG,RIGHTS_ISSUE,2025-10-10,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/187680,
+DIG,STOCK_DIVIDEND,2022-07-22,2022-07-21,material event terms incomplete,https://www.vsd.vn/vi/ad/151698,https://cafef.vn/du-lieu/dig/thong-tin-chung.chn
+DIG,STOCK_DIVIDEND,2021-06-09,2021-06-08,material event terms incomplete,https://www.vsd.vn/vi/ad/142089,https://cafef.vn/du-lieu/dig/thong-tin-chung.chn
+DIG,STOCK_DIVIDEND,2021-03-31,2021-03-30,material event terms incomplete,https://www.vsd.vn/vi/ad/140313,https://cafef.vn/du-lieu/dig/thong-tin-chung.chn
+DPG,BONUS_SHARE,2021-07-15,2021-07-14,material event terms incomplete,https://www.vsd.vn/vi/ad/142977,https://cafef.vn/du-lieu/dpg/thong-tin-chung.chn
+DPM,CASH_DIVIDEND,2025-07-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/184756,
+DPM,CASH_DIVIDEND,2024-08-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/173814,
+DPM,CASH_DIVIDEND,2023-08-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/160788,
+DPM,CASH_DIVIDEND,2023-02-17,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/156077,
+DPM,CASH_DIVIDEND,2022-07-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151942,
+DPM,CASH_DIVIDEND,2022-01-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147360,
+DPM,CASH_DIVIDEND,2021-07-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/142759,
+DPM,CASH_DIVIDEND,2021-01-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77553,
+DPM,CASH_DIVIDEND,2020-08-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/70741,
+DPM,CASH_DIVIDEND,2020-04-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/67003,
+DPR,CASH_DIVIDEND,2021-07-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143299,
+DRC,CASH_DIVIDEND,2020-11-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76015,
+DRH,RIGHTS_ISSUE,2022-03-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148573,
+DRL,CASH_DIVIDEND,2021-05-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141090,
+DSC,RIGHTS_ISSUE,2025-10-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/187496,
+DTT,CASH_DIVIDEND,2021-05-31,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141680,
+DTT,CASH_DIVIDEND,2021-05-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141487,
+DVP,CASH_DIVIDEND,2020-08-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/70752,
+DXG,RIGHTS_ISSUE,2025-01-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/177996,
+DXG,RIGHTS_ISSUE,2023-12-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165369,
+ELC,RIGHTS_ISSUE,2025-02-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/179253,
+ELC,RIGHTS_ISSUE,2022-09-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/152977,
+EVF,RIGHTS_ISSUE,2023-09-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/161605,
+EVG,RIGHTS_ISSUE,2022-01-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147011,
+EVG,RIGHTS_ISSUE,2021-01-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77436,
+FCM,STOCK_DIVIDEND,2024-11-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/176720,
+FCN,CASH_DIVIDEND,2021-11-16,2021-11-15,material event terms incomplete,https://www.vsd.vn/vi/ad/145801,https://cafef.vn/du-lieu/fcn/thong-tin-chung.chn
+FCN,STOCK_DIVIDEND,2020-12-11,2020-12-10,material event terms incomplete,https://www.vsd.vn/vi/ad/76577,https://cafef.vn/du-lieu/fcn/thong-tin-chung.chn
+FCN,CASH_DIVIDEND,2020-12-07,2020-12-04,material event terms incomplete,https://www.vsd.vn/vi/ad/76522,https://cafef.vn/du-lieu/fcn/thong-tin-chung.chn
+FIR,STOCK_DIVIDEND,2023-06-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/159587,
+FIR,STOCK_DIVIDEND,2023-02-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/155975,
+FIR,STOCK_DIVIDEND,2022-05-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/150248,
+FIR,RIGHTS_ISSUE,2022-05-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/150248,
+FIR,STOCK_DIVIDEND,2020-11-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/75787,
+FIR,BONUS_SHARE,2020-01-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/62325,
+FIT,STOCK_DIVIDEND,2022-04-26,2022-04-25,material event terms incomplete,https://www.vsd.vn/vi/ad/149870,https://cafef.vn/du-lieu/fit/thong-tin-chung.chn
+FIT,RIGHTS_ISSUE,2022-04-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149870,
+FMC,RIGHTS_ISSUE,2021-01-19,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77465,
+FPT,STOCK_DIVIDEND,2020-05-14,2020-05-13,material event terms incomplete,https://www.vsd.vn/vi/ad/67351,https://cafef.vn/du-lieu/fpt/thong-tin-chung.chn
+FRT,STOCK_DIVIDEND,2025-07-17,2025-07-16,material event terms incomplete,https://www.vsd.vn/vi/ad/184742,https://cafef.vn/du-lieu/frt/thong-tin-chung.chn
+FTS,CASH_DIVIDEND,2025-05-15,2025-05-14,material event terms incomplete,https://www.vsd.vn/vi/ad/182403,https://cafef.vn/du-lieu/fts/thong-tin-chung.chn
+FTS,RIGHTS_ISSUE,2022-07-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/152066,
+FTS,STOCK_DIVIDEND,2020-05-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/67672,
+GAS,CASH_DIVIDEND,2023-08-30,2023-08-29,material event terms incomplete,https://www.vsd.vn/vi/ad/160353,https://cafef.vn/du-lieu/gas/thong-tin-chung.chn
+GDT,CASH_DIVIDEND,2025-06-17,2025-06-16,material event terms incomplete,https://www.vsd.vn/vi/ad/183611,https://cafef.vn/du-lieu/gdt/thong-tin-chung.chn
+GEG,CASH_DIVIDEND,2025-12-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189202,
+GEG,SHARE_CONVERSION,2025-12-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189202,
+GEG,CASH_DIVIDEND,2024-12-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/176781,
+GEG,SHARE_CONVERSION,2024-12-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/176781,
+GEG,SHARE_CONVERSION,2024-08-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/174110,
+GEG,CASH_DIVIDEND,2023-12-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165768,
+GEG,SHARE_CONVERSION,2023-12-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165768,
+GEG,STOCK_DIVIDEND,2023-07-07,2023-07-07,material event terms incomplete,https://www.vsd.vn/vi/ad/159676,https://cafef.vn/du-lieu/geg/thong-tin-chung.chn
+GEG,STOCK_DIVIDEND,2023-07-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/159627,
+GEG,RIGHTS_ISSUE,2021-08-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143891,
+GEG,STOCK_DIVIDEND,2020-09-21,2020-09-18,material event terms incomplete,https://www.vsd.vn/vi/ad/73587,https://cafef.vn/du-lieu/geg/thong-tin-chung.chn
+GEG,RIGHTS_ISSUE,2020-09-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/73587,
+GEX,RIGHTS_ISSUE,2021-06-04,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/142098,
+GIL,STOCK_DIVIDEND,2024-11-11,2024-11-08,material event terms incomplete,https://www.vsd.vn/vi/ad/176299,https://cafef.vn/du-lieu/gil/thong-tin-chung.chn
+GIL,RIGHTS_ISSUE,2024-11-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/176299,
+GIL,RIGHTS_ISSUE,2022-09-12,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/152830,
+GIL,RIGHTS_ISSUE,2020-04-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/66607,
+GMD,RIGHTS_ISSUE,2024-10-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/175808,
+GMH,CASH_DIVIDEND,2022-03-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149190,
+GSP,RIGHTS_ISSUE,2021-08-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145572,
+GSP,RIGHTS_ISSUE,2021-08-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145371,
+GSP,RIGHTS_ISSUE,2021-08-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/144289,
+GSP,RIGHTS_ISSUE,2021-08-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143831,
+GTN,RIGHTS_ISSUE,2022-03-09,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148057,
+GTN,MERGER,2022-03-09,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148057,
+GTN,SHARE_CONVERSION,2022-03-09,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148057,
+HAP,RIGHTS_ISSUE,2022-01-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147233,
+HAS,CASH_DIVIDEND,2023-10-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/162370,
+HAX,CASH_DIVIDEND,2022-07-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151644,
+HAX,STOCK_DIVIDEND,2022-07-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151644,
+HCD,STOCK_DIVIDEND,2022-01-24,2022-01-21,material event terms incomplete,https://www.vsd.vn/vi/ad/147254,https://cafef.vn/du-lieu/hcd/thong-tin-chung.chn
+HCM,STOCK_DIVIDEND,2024-01-03,2024-01-02,material event terms incomplete,https://www.vsd.vn/vi/ad/165818,https://cafef.vn/du-lieu/hcm/thong-tin-chung.chn
+HCM,RIGHTS_ISSUE,2024-01-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165818,
+HDB,STOCK_DIVIDEND,2022-09-28,2022-09-27,material event terms incomplete,https://www.vsd.vn/vi/ad/153334,https://cafef.vn/du-lieu/DuLieu.aspx?cat_id=1009&san=hose&symbol=HDB
+HDB,STOCK_DIVIDEND,2021-08-27,2021-08-26,material event terms incomplete,https://www.vsd.vn/vi/ad/143610,https://cafef.vn/du-lieu/DuLieu.aspx?cat_id=1009&san=hose&symbol=HDB
+HDB,STOCK_DIVIDEND,2020-11-30,2020-11-27,"term conflict official=0.269231, reference=269.23",https://www.vsd.vn/vi/ad/76360,https://cafef.vn/du-lieu/DuLieu.aspx?cat_id=1009&san=hose&symbol=HDB
+HDB,RIGHTS_ISSUE,2020-11-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76360,
+HDB,RIGHTS_ISSUE,2020-10-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/73847,
+HDC,RIGHTS_ISSUE,2025-11-12,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/188732,
+HDC,SHARE_CONVERSION,2025-11-12,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/188732,
+HDC,RIGHTS_ISSUE,2024-05-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/169919,
+HDG,STOCK_DIVIDEND,2025-06-16,2025-06-13,material event terms incomplete,https://www.vsd.vn/vi/ad/183602,https://cafef.vn/du-lieu/hdg/thong-tin-chung.chn
+HDG,STOCK_DIVIDEND,2022-07-07,2022-07-06,material event terms incomplete,https://www.vsd.vn/vi/ad/151613,https://cafef.vn/du-lieu/hdg/thong-tin-chung.chn
+HDG,CASH_DIVIDEND,2022-03-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148811,
+HDG,STOCK_DIVIDEND,2020-06-16,2020-06-15,material event terms incomplete,https://www.vsd.vn/vi/ad/68855,https://cafef.vn/du-lieu/hdg/thong-tin-chung.chn
+HHP,STOCK_DIVIDEND,2022-12-12,2022-12-09,"term conflict official=0.065, reference=0.65",https://www.vsd.vn/vi/ad/154518,https://cafef.vn/du-lieu/hhp/thong-tin-chung.chn
+HHS,STOCK_DIVIDEND,2024-08-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/172993,
+HHS,STOCK_DIVIDEND,2023-07-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/159557,
+HHS,STOCK_DIVIDEND,2021-12-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/146609,
+HHS,CASH_DIVIDEND,2020-06-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/68966,
+HHV,RIGHTS_ISSUE,2023-11-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164714,
+HHV,STOCK_DIVIDEND,2023-06-08,2023-06-07,material event terms incomplete,https://www.vsd.vn/vi/ad/159082,https://cafef.vn/du-lieu/hhv/thong-tin-chung.chn
+HHV,RIGHTS_ISSUE,2022-10-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/153834,
+HID,CASH_DIVIDEND,2020-05-08,2020-05-07,material event terms incomplete,https://www.vsd.vn/vi/ad/71485,https://cafef.vn/du-lieu/hid/thong-tin-chung.chn
+HII,RIGHTS_ISSUE,2022-03-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148458,
+HMC,CASH_DIVIDEND,2021-06-15,2021-06-14,material event terms incomplete,https://www.vsd.vn/vi/ad/142061,https://cafef.vn/du-lieu/hmc/thong-tin-chung.chn
+HMC,CASH_DIVIDEND,2020-07-10,2020-07-09,material event terms incomplete,https://www.vsd.vn/vi/ad/69426,https://cafef.vn/du-lieu/hmc/thong-tin-chung.chn
+HSL,STOCK_DIVIDEND,2024-08-16,2024-08-15,material event terms incomplete,https://www.vsd.vn/vi/ad/173653,https://cafef.vn/du-lieu/hsl/thong-tin-chung.chn
+HT1,CASH_DIVIDEND,2023-10-10,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/162052,
+HTN,RIGHTS_ISSUE,2021-02-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/138323,
+HTN,CASH_DIVIDEND,2020-11-16,2020-11-13,material event terms incomplete,https://www.vsd.vn/vi/ad/76003,https://cafef.vn/du-lieu/htn/thong-tin-chung.chn
+HU3,CASH_DIVIDEND,2022-03-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149159,
+HUB,SHARE_CONVERSION,2024-06-04,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/171198,
+HUB,SHARE_CONVERSION,2024-02-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/166925,
+HUB,STOCK_DIVIDEND,2022-10-24,2022-10-21,"term conflict official=0.15, reference=0.05",https://www.vsd.vn/vi/ad/153894,https://cafef.vn/du-lieu/hub/thong-tin-chung.chn
+HUB,SHARE_CONVERSION,2021-06-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/142325,
+HUB,SHARE_CONVERSION,2020-11-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76009,
+HVH,RIGHTS_ISSUE,2021-01-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77501,
+HVN,RIGHTS_ISSUE,2025-07-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/186792,
+HVN,RIGHTS_ISSUE,2025-07-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/184827,
+HVN,RIGHTS_ISSUE,2021-07-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143393,
+IDI,STOCK_DIVIDEND,2024-07-16,2024-07-15,material event terms incomplete,https://www.vsd.vn/vi/ad/172601,https://cafef.vn/du-lieu/idi/thong-tin-chung.chn
+IJC,RIGHTS_ISSUE,2025-09-17,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/186838,
+IJC,RIGHTS_ISSUE,2024-02-27,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/167546,
+ILB,RIGHTS_ISSUE,2025-03-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/179708,
+IMP,STOCK_DIVIDEND,2024-07-12,2024-07-11,material event terms incomplete,https://www.vsd.vn/vi/ad/172501,https://cafef.vn/du-lieu/imp/thong-tin-chung.chn
+IMP,STOCK_DIVIDEND,2023-10-06,2023-10-05,material event terms incomplete,https://www.vsd.vn/vi/ad/161753,https://cafef.vn/du-lieu/imp/thong-tin-chung.chn
+ITD,STOCK_DIVIDEND,2025-08-08,2025-08-07,material event terms incomplete,https://www.vsd.vn/vi/ad/185580,https://cafef.vn/du-lieu/itd/thong-tin-chung.chn
+ITD,SHARE_CONVERSION,2021-11-16,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145692,
+ITD,CASH_DIVIDEND,2020-11-17,2020-11-16,material event terms incomplete,https://www.vsd.vn/vi/ad/76028,https://cafef.vn/du-lieu/itd/thong-tin-chung.chn
+KDC,CASH_DIVIDEND,2022-04-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149516,
+KDC,STOCK_DIVIDEND,2021-08-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143683,
+KDH,STOCK_DIVIDEND,2024-10-18,2024-10-17,material event terms incomplete,https://www.vsd.vn/vi/ad/175315,https://cafef.vn/du-lieu/kdh/thong-tin-chung.chn
+KDH,CASH_DIVIDEND,2020-08-20,2020-08-19,material event terms incomplete,https://www.vsd.vn/vi/ad/71013,https://cafef.vn/du-lieu/kdh/thong-tin-chung.chn
+KHP,CASH_DIVIDEND,2022-03-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147775,
+KHP,CASH_DIVIDEND,2021-06-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141602,
+KOS,RIGHTS_ISSUE,2020-12-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77001,
+KPF,STOCK_DIVIDEND,2021-01-20,2021-01-19,material event terms incomplete,https://www.vsd.vn/vi/ad/77498,https://cafef.vn/du-lieu/kpf/thong-tin-chung.chn
+KPF,RIGHTS_ISSUE,2021-01-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77498,
+KSB,RIGHTS_ISSUE,2024-02-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/166973,
+LAF,CASH_DIVIDEND,2025-03-12,2025-03-11,material event terms incomplete,https://www.vsd.vn/vi/ad/179536,https://cafef.vn/du-lieu/laf/thong-tin-chung.chn
+LAF,CASH_DIVIDEND,2024-03-15,2024-03-14,material event terms incomplete,https://www.vsd.vn/vi/ad/167794,https://cafef.vn/du-lieu/laf/thong-tin-chung.chn
+LBM,CASH_DIVIDEND,2022-03-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148492,
+LCG,RIGHTS_ISSUE,2021-10-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145176,
+LDG,STOCK_DIVIDEND,2022-12-08,2022-12-07,material event terms incomplete,https://www.vsd.vn/vi/ad/154684,https://cafef.vn/du-lieu/ldg/thong-tin-chung.chn
+LGC,RIGHTS_ISSUE,2025-10-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/187914,
+LGC,CASH_DIVIDEND,2024-06-28,2024-06-27,material event terms incomplete,https://www.vsd.vn/vi/ad/172138,https://cafef.vn/du-lieu/lgc/thong-tin-chung.chn
+LHG,CASH_DIVIDEND,2025-07-28,2025-07-25,material event terms incomplete,https://www.vsd.vn/vi/ad/185071,https://cafef.vn/du-lieu/lhg/thong-tin-chung.chn
+LHG,CASH_DIVIDEND,2024-07-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/172920,
+LHG,CASH_DIVIDEND,2022-06-24,2022-06-23,material event terms incomplete,https://www.vsd.vn/vi/ad/151415,https://cafef.vn/du-lieu/lhg/thong-tin-chung.chn
+LIX,CASH_DIVIDEND,2023-12-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165528,
+LPB,RIGHTS_ISSUE,2023-08-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/160199,
+LPB,RIGHTS_ISSUE,2022-04-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149467,
+LPB,STOCK_DIVIDEND,2020-12-04,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76369,
+LPB,STOCK_DIVIDEND,2020-02-06,2020-02-05,"term conflict official=0.09287, reference=92.87",https://www.vsd.vn/vi/ad/62722,https://cafef.vn/du-lieu/lpb/thong-tin-chung.chn
+LPB,BONUS_SHARE,2020-02-06,2020-02-05,"term conflict official=0.09287, reference=7.13",https://www.vsd.vn/vi/ad/62722,https://cafef.vn/du-lieu/lpb/thong-tin-chung.chn
+LSS,CASH_DIVIDEND,2025-01-15,2025-01-14,material event terms incomplete,https://www.vsd.vn/vi/ad/178117,https://cafef.vn/du-lieu/lss/thong-tin-chung.chn
+LSS,STOCK_DIVIDEND,2022-12-09,2022-12-08,"term conflict official=0.065, reference=0.65",https://www.vsd.vn/vi/ad/154810,https://cafef.vn/du-lieu/lss/thong-tin-chung.chn
+MIG,RIGHTS_ISSUE,2024-12-10,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/177097,
+MSB,RIGHTS_ISSUE,2021-01-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/138300,
+MSB,RIGHTS_ISSUE,2021-01-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77427,
+MSH,CASH_DIVIDEND,2021-05-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141335,
+MWG,STOCK_DIVIDEND,2022-06-17,2022-06-16,material event terms incomplete,https://www.vsd.vn/vi/ad/151178,https://cafef.vn/du-lieu/mwg/thong-tin-chung.chn
+MWG,STOCK_DIVIDEND,2021-08-31,2021-08-30,material event terms incomplete,https://www.vsd.vn/vi/ad/143977,https://cafef.vn/du-lieu/mwg/thong-tin-chung.chn
+NAV,CASH_DIVIDEND,2025-08-25,2025-08-22,material event terms incomplete,https://www.vsd.vn/vi/ad/186073,https://cafef.vn/du-lieu/nav/thong-tin-chung.chn
+NAV,CASH_DIVIDEND,2025-04-04,2025-04-03,material event terms incomplete,https://www.vsd.vn/vi/ad/180900,https://cafef.vn/du-lieu/nav/thong-tin-chung.chn
+NAV,CASH_DIVIDEND,2023-03-28,2023-03-27,material event terms incomplete,https://www.vsd.vn/vi/ad/157012,https://cafef.vn/du-lieu/nav/thong-tin-chung.chn
+NAV,CASH_DIVIDEND,2022-03-31,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149153,
+NAV,CASH_DIVIDEND,2021-12-20,2021-12-17,material event terms incomplete,https://www.vsd.vn/vi/ad/146473,https://cafef.vn/du-lieu/nav/thong-tin-chung.chn
+NAV,CASH_DIVIDEND,2021-04-29,2021-04-28,material event terms incomplete,https://www.vsd.vn/vi/ad/140849,https://cafef.vn/du-lieu/nav/thong-tin-chung.chn
+NAV,CASH_DIVIDEND,2020-06-09,2020-06-08,material event terms incomplete,https://www.vsd.vn/vi/ad/68720,https://cafef.vn/du-lieu/nav/thong-tin-chung.chn
+NHA,RIGHTS_ISSUE,2025-11-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189335,
+NHA,RIGHTS_ISSUE,2022-01-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147183,
+NHA,BONUS_SHARE,2020-08-13,2020-08-12,material event terms incomplete,https://www.vsd.vn/vi/ad/70915,https://cafef.vn/du-lieu/nha/thong-tin-chung.chn
+NHH,RIGHTS_ISSUE,2025-05-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/182665,
+NHH,RIGHTS_ISSUE,2022-04-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149627,
+NHH,RIGHTS_ISSUE,2020-11-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/75780,
+NHT,CASH_DIVIDEND,2024-10-08,2024-10-07,material event terms incomplete,https://www.vsd.vn/vi/ad/174570,https://cafef.vn/du-lieu/nht/thong-tin-chung.chn
+NHT,CASH_DIVIDEND,2023-05-11,2023-05-10,material event terms incomplete,https://www.vsd.vn/vi/ad/158391,https://cafef.vn/du-lieu/nht/thong-tin-chung.chn
+NHT,STOCK_DIVIDEND,2022-01-21,2022-01-20,material event terms incomplete,https://www.vsd.vn/vi/ad/147166,https://cafef.vn/du-lieu/nht/thong-tin-chung.chn
+NKG,RIGHTS_ISSUE,2024-12-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/177418,
+NKG,STOCK_DIVIDEND,2022-06-06,2022-06-03,material event terms incomplete,https://www.vsd.vn/vi/ad/151023,https://cafef.vn/du-lieu/nkg/thong-tin-chung.chn
+NLG,RIGHTS_ISSUE,2025-10-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/187893,
+NLG,CASH_DIVIDEND,2025-06-06,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/183365,
+NLG,CASH_DIVIDEND,2024-05-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/171163,
+NLG,CASH_DIVIDEND,2023-05-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/158842,
+NLG,CASH_DIVIDEND,2022-12-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/154809,
+NLG,CASH_DIVIDEND,2022-12-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/154654,
+NLG,CASH_DIVIDEND,2022-05-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/150695,
+NLG,CASH_DIVIDEND,2021-11-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145909,
+NLG,STOCK_DIVIDEND,2021-11-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145909,
+NLG,CASH_DIVIDEND,2021-05-19,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141600,
+NLG,CASH_DIVIDEND,2020-12-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76554,
+NLG,STOCK_DIVIDEND,2020-09-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/73706,
+NLG,CASH_DIVIDEND,2020-06-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/68708,
+NNC,CASH_DIVIDEND,2020-11-30,2020-11-27,"term conflict official=1900, reference=5000",https://www.vsd.vn/vi/ad/76280,https://cafef.vn/du-lieu/nnc/thong-tin-chung.chn
+NSC,CASH_DIVIDEND,2023-12-20,2023-12-19,material event terms incomplete,https://www.vsd.vn/vi/ad/165485,https://cafef.vn/du-lieu/nsc/thong-tin-chung.chn
+NT2,CASH_DIVIDEND,2022-04-05,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149415,
+NVL,RIGHTS_ISSUE,2021-01-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77552,
+OCB,STOCK_DIVIDEND,2021-08-03,2021-08-02,material event terms incomplete,https://www.vsd.vn/vi/ad/143431,https://cafef.vn/du-lieu/ocb/thong-tin-chung.chn
+ORS,RIGHTS_ISSUE,2024-01-19,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/166577,
+PAC,CASH_DIVIDEND,2023-12-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165540,
+PAC,CASH_DIVIDEND,2022-03-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148421,
+PDN,CASH_DIVIDEND,2022-03-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148153,
+PDR,RIGHTS_ISSUE,2024-05-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/170480,
+PDV,STOCK_DIVIDEND,2025-12-03,2025-12-02,material event terms incomplete,https://www.vsd.vn/vi/ad/189371,https://cafef.vn/du-lieu/pdv/thong-tin-chung.chn
+PGV,CASH_DIVIDEND,2023-12-29,2023-12-28,"term conflict official=260, reference=666",https://www.vsd.vn/vi/ad/165880,https://cafef.vn/du-lieu/pgv/thong-tin-chung.chn
+PHC,STOCK_DIVIDEND,2021-10-25,2021-10-22,material event terms incomplete,https://www.vsd.vn/vi/ad/145197,https://cafef.vn/du-lieu/phc/thong-tin-chung.chn
+PHC,RIGHTS_ISSUE,2021-10-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145197,
+PJT,STOCK_DIVIDEND,2024-07-22,2024-07-19,material event terms incomplete,https://www.vsd.vn/vi/ad/172891,https://cafef.vn/du-lieu/pjt/thong-tin-chung.chn
+PJT,RIGHTS_ISSUE,2021-07-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143214,
+PLP,RIGHTS_ISSUE,2022-01-19,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147093,
+PLX,CASH_DIVIDEND,2025-06-11,2025-06-10,material event terms incomplete,https://www.vsd.vn/vi/ad/183549,https://cafef.vn/du-lieu/plx/thong-tin-chung.chn
+PMG,STOCK_DIVIDEND,2020-08-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/71038,
+PNC,CASH_DIVIDEND,2020-12-30,2020-12-29,material event terms incomplete,https://www.vsd.vn/vi/ad/77108,https://cafef.vn/du-lieu/pnc/thong-tin-chung.chn
+PNJ,CASH_DIVIDEND,2022-03-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148166,
+PNJ,CASH_DIVIDEND,2021-12-10,2021-12-09,material event terms incomplete,https://www.vsd.vn/vi/ad/146234,https://cafef.vn/du-lieu/pnj/thong-tin-chung.chn
+PNJ,CASH_DIVIDEND,2021-03-16,2021-03-15,material event terms incomplete,https://www.vsd.vn/vi/ad/139101,https://cafef.vn/du-lieu/pnj/thong-tin-chung.chn
+PNJ,CASH_DIVIDEND,2020-12-09,2020-12-08,material event terms incomplete,https://www.vsd.vn/vi/ad/76282,https://cafef.vn/du-lieu/pnj/thong-tin-chung.chn
+PNJ,CASH_DIVIDEND,2020-04-03,2020-04-01,material event terms incomplete,https://www.vsd.vn/vi/ad/66229,https://cafef.vn/du-lieu/pnj/thong-tin-chung.chn
+POW,RIGHTS_ISSUE,2025-12-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189687,
+PPC,CASH_DIVIDEND,2022-07-18,2022-07-15,material event terms incomplete,https://www.vsd.vn/vi/ad/151786,https://cafef.vn/du-lieu/ppc/thong-tin-chung.chn
+PTB,RIGHTS_ISSUE,2025-12-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189746,
+PTB,CASH_DIVIDEND,2022-05-27,2022-05-26,material event terms incomplete,https://www.vsd.vn/vi/ad/150602,https://cafef.vn/du-lieu/ptb/thong-tin-chung.chn
+PTB,CASH_DIVIDEND,2021-05-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141922,
+PTB,BONUS_SHARE,2021-05-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141922,
+PVP,STOCK_DIVIDEND,2024-07-26,2024-07-25,material event terms incomplete,https://www.vsd.vn/vi/ad/173058,https://cafef.vn/du-lieu/pvp/thong-tin-chung.chn
+RAL,RIGHTS_ISSUE,2021-12-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/146710,
+RAL,CASH_DIVIDEND,2021-04-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/140669,
+RDP,BONUS_SHARE,2021-04-05,2021-04-02,material event terms incomplete,https://www.vsd.vn/vi/ad/139272,https://cafef.vn/du-lieu/rdp/thong-tin-chung.chn
+RDP,STOCK_DIVIDEND,2020-11-30,2020-11-27,material event terms incomplete,https://www.vsd.vn/vi/ad/76313,https://cafef.vn/du-lieu/rdp/thong-tin-chung.chn
+RDP,MERGER,2020-11-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76313,
+RDP,SHARE_CONVERSION,2020-11-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/76313,
+REE,CASH_DIVIDEND,2024-03-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/167188,
+RYG,CASH_DIVIDEND,2024-09-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/174272,
+S4A,CASH_DIVIDEND,2021-12-22,2021-12-21,material event terms incomplete,https://www.vsd.vn/vi/ad/146459,https://cafef.vn/du-lieu/s4a/thong-tin-chung.chn
+S4A,CASH_DIVIDEND,2021-01-22,2021-01-21,material event terms incomplete,https://www.vsd.vn/vi/ad/77548,https://cafef.vn/du-lieu/s4a/thong-tin-chung.chn
+S4A,CASH_DIVIDEND,2020-04-08,2020-04-07,material event terms incomplete,https://www.vsd.vn/vi/ad/65915,https://cafef.vn/du-lieu/s4a/thong-tin-chung.chn
+SAB,CASH_DIVIDEND,2026-01-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189016,
+SAB,CASH_DIVIDEND,2024-07-08,2024-07-05,material event terms incomplete,https://www.vsd.vn/vi/ad/171976,https://cafef.vn/du-lieu/sab/thong-tin-chung.chn
+SAB,CASH_DIVIDEND,2022-03-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147944,
+SAM,STOCK_DIVIDEND,2022-10-28,2022-10-27,material event terms incomplete,https://www.vsd.vn/vi/ad/154003,https://cafef.vn/du-lieu/sam/thong-tin-chung.chn
+SAM,STOCK_DIVIDEND,2022-01-24,2022-01-21,material event terms incomplete,https://www.vsd.vn/vi/ad/147206,https://cafef.vn/du-lieu/sam/thong-tin-chung.chn
+SAM,RIGHTS_ISSUE,2021-01-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77447,
+SAV,CASH_DIVIDEND,2025-05-23,2025-05-22,material event terms incomplete,https://www.vsd.vn/vi/ad/182627,https://cafef.vn/du-lieu/sav/thong-tin-chung.chn
+SAV,CASH_DIVIDEND,2024-05-31,2024-05-30,material event terms incomplete,https://www.vsd.vn/vi/ad/171007,https://cafef.vn/du-lieu/sav/thong-tin-chung.chn
+SAV,CASH_DIVIDEND,2023-08-15,2023-08-14,material event terms incomplete,https://www.vsd.vn/vi/ad/160470,https://cafef.vn/du-lieu/sav/thong-tin-chung.chn
+SAV,CASH_DIVIDEND,2022-06-03,2022-06-02,material event terms incomplete,https://www.vsd.vn/vi/ad/150880,https://cafef.vn/du-lieu/sav/thong-tin-chung.chn
+SAV,CASH_DIVIDEND,2021-05-21,2021-05-20,material event terms incomplete,https://www.vsd.vn/vi/ad/141697,https://cafef.vn/du-lieu/sav/thong-tin-chung.chn
+SAV,CASH_DIVIDEND,2020-06-25,2020-06-24,material event terms incomplete,https://www.vsd.vn/vi/ad/68964,https://cafef.vn/du-lieu/sav/thong-tin-chung.chn
+SBA,CASH_DIVIDEND,2025-06-05,2025-06-04,material event terms incomplete,https://www.vsd.vn/vi/ad/183146,https://cafef.vn/du-lieu/sba/thong-tin-chung.chn
+SBG,STOCK_DIVIDEND,2024-10-03,2024-10-02,material event terms incomplete,https://www.vsd.vn/vi/ad/175048,https://cafef.vn/du-lieu/sbg/thong-tin-chung.chn
+SBG,RIGHTS_ISSUE,2024-10-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/175048,
+SBT,RIGHTS_ISSUE,2025-07-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/185051,
+SBT,SHARE_CONVERSION,2025-07-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/185051,
+SBT,CASH_DIVIDEND,2025-03-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/179918,
+SBT,SHARE_CONVERSION,2025-03-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/179918,
+SBT,SHARE_CONVERSION,2025-01-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/178244,
+SBT,CASH_DIVIDEND,2023-11-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164592,
+SBT,SHARE_CONVERSION,2023-11-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164592,
+SBT,SHARE_CONVERSION,2022-11-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/154484,
+SBT,CASH_DIVIDEND,2020-10-26,2020-10-23,material event terms incomplete,https://www.vsd.vn/vi/ad/75421,https://cafef.vn/du-lieu/sbt/thong-tin-chung.chn
+SBV,CASH_DIVIDEND,2020-12-01,2020-11-30,material event terms incomplete,https://www.vsd.vn/vi/ad/76444,https://cafef.vn/du-lieu/sbv/thong-tin-chung.chn
+SCD,CASH_DIVIDEND,2020-07-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/69926,
+SCS,CASH_DIVIDEND,2020-07-20,2020-07-17,material event terms incomplete,https://www.vsd.vn/vi/ad/69788,https://cafef.vn/du-lieu/scs/thong-tin-chung.chn
+SFC,CASH_DIVIDEND,2024-11-25,2024-11-22,"term conflict official=1.5, reference=1500",https://www.vsd.vn/vi/ad/176339,https://cafef.vn/du-lieu/sfc/thong-tin-chung.chn
+SGR,STOCK_DIVIDEND,2020-10-15,2020-10-14,"term conflict official=0.317526, reference=317525",https://www.vsd.vn/vi/ad/75378,https://cafef.vn/du-lieu/sgr/thong-tin-chung.chn
+SGT,RIGHTS_ISSUE,2022-09-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/153184,
+SHB,CASH_DIVIDEND,2025-06-10,2025-06-09,material event terms incomplete,https://www.vsd.vn/vi/ad/183115,https://cafef.vn/du-lieu/shb/thong-tin-chung.chn
+SHB,STOCK_DIVIDEND,2021-11-12,2021-11-11,"term conflict official=0.105, reference=1.05",https://www.vsd.vn/vi/ad/145737,https://cafef.vn/du-lieu/shb/thong-tin-chung.chn
+SHB,RIGHTS_ISSUE,2021-11-12,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145737,
+SHI,RIGHTS_ISSUE,2021-12-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/146147,
+SHI,STOCK_DIVIDEND,2020-10-30,2020-10-29,material event terms incomplete,https://www.vsd.vn/vi/ad/75725,https://cafef.vn/du-lieu/shi/thong-tin-chung.chn
+SHP,CASH_DIVIDEND,2025-03-17,2025-03-14,material event terms incomplete,https://www.vsd.vn/vi/ad/180096,https://cafef.vn/du-lieu/shp/thong-tin-chung.chn
+SHP,CASH_DIVIDEND,2023-10-17,2023-10-16,material event terms incomplete,https://www.vsd.vn/vi/ad/161791,https://cafef.vn/du-lieu/shp/thong-tin-chung.chn
+SII,RIGHTS_ISSUE,2020-01-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/62506,
+SIP,STOCK_DIVIDEND,2024-07-11,2024-07-10,material event terms incomplete,https://www.vsd.vn/vi/ad/172599,https://cafef.vn/du-lieu/sip/thong-tin-chung.chn
+SJD,CASH_DIVIDEND,2024-11-20,2024-11-19,material event terms incomplete,https://www.vsd.vn/vi/ad/176213,https://cafef.vn/du-lieu/sjd/thong-tin-chung.chn
+SJD,CASH_DIVIDEND,2022-03-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148774,
+SJS,STOCK_DIVIDEND,2025-07-31,2025-07-30,material event terms incomplete,https://www.vsd.vn/vi/ad/185359,https://cafef.vn/du-lieu/sjs/thong-tin-chung.chn
+SKG,STOCK_DIVIDEND,2024-07-01,2024-06-28,material event terms incomplete,https://www.vsd.vn/vi/ad/172032,https://cafef.vn/du-lieu/skg/thong-tin-chung.chn
+SMA,CASH_DIVIDEND,2024-05-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/170116,
+SMB,CASH_DIVIDEND,2021-10-25,2021-10-22,material event terms incomplete,https://www.vsd.vn/vi/ad/145278,https://cafef.vn/du-lieu/smb/thong-tin-chung.chn
+SMC,CASH_DIVIDEND,2020-10-21,2020-10-20,material event terms incomplete,https://www.vsd.vn/vi/ad/74945,https://cafef.vn/du-lieu/smc/thong-tin-chung.chn
+SMC,CASH_DIVIDEND,2020-07-15,2020-07-14,material event terms incomplete,https://www.vsd.vn/vi/ad/69466,https://cafef.vn/du-lieu/smc/thong-tin-chung.chn
+SRF,STOCK_DIVIDEND,2021-09-07,2021-09-06,material event terms incomplete,https://www.vsd.vn/vi/ad/144119,https://cafef.vn/du-lieu/srf/thong-tin-chung.chn
+SSB,STOCK_DIVIDEND,2024-08-26,2024-08-23,material event terms incomplete,https://www.vsd.vn/vi/ad/173801,https://cafef.vn/du-lieu/ssb/thong-tin-chung.chn
+SSB,BONUS_SHARE,2024-08-26,2024-08-23,material event terms incomplete,https://www.vsd.vn/vi/ad/173801,https://cafef.vn/du-lieu/ssb/thong-tin-chung.chn
+SSB,STOCK_DIVIDEND,2023-06-26,2023-06-23,material event terms incomplete,https://www.vsd.vn/vi/ad/159460,https://cafef.vn/du-lieu/ssb/thong-tin-chung.chn
+SSB,BONUS_SHARE,2023-06-26,2023-06-23,material event terms incomplete,https://www.vsd.vn/vi/ad/159460,https://cafef.vn/du-lieu/ssb/thong-tin-chung.chn
+SSB,STOCK_DIVIDEND,2022-06-17,2022-06-16,material event terms incomplete,https://www.vsd.vn/vi/ad/151263,https://cafef.vn/du-lieu/ssb/thong-tin-chung.chn
+SSB,BONUS_SHARE,2022-06-17,2022-06-16,material event terms incomplete,https://www.vsd.vn/vi/ad/151263,https://cafef.vn/du-lieu/ssb/thong-tin-chung.chn
+SSB,RIGHTS_ISSUE,2022-01-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147070,
+SSB,RIGHTS_ISSUE,2021-10-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145095,
+SSB,STOCK_DIVIDEND,2021-07-26,2021-07-23,"term conflict official=0.091206, reference=912.06",https://www.vsd.vn/vi/ad/143177,https://cafef.vn/du-lieu/ssb/thong-tin-chung.chn
+SSB,BONUS_SHARE,2021-07-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143177,
+SSB,RIGHTS_ISSUE,2021-07-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143177,
+SSI,RIGHTS_ISSUE,2025-12-09,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189531,
+SSI,RIGHTS_ISSUE,2024-09-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/174616,
+SSI,RIGHTS_ISSUE,2022-06-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151355,
+SSI,RIGHTS_ISSUE,2021-09-09,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143909,
+STK,STOCK_DIVIDEND,2023-07-05,2023-07-04,material event terms incomplete,https://www.vsd.vn/vi/ad/159606,https://cafef.vn/du-lieu/stk/thong-tin-chung.chn
+STK,RIGHTS_ISSUE,2022-08-05,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151960,
+SVC,CASH_DIVIDEND,2024-07-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/172943,
+SVD,RIGHTS_ISSUE,2022-03-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148022,
+SVT,STOCK_DIVIDEND,2023-09-18,2023-09-15,"term conflict official=0.149999, reference=14999.9",https://www.vsd.vn/vi/ad/161366,https://cafef.vn/du-lieu/svt/thong-tin-chung.chn
+SZC,STOCK_DIVIDEND,2024-04-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/169711,
+SZC,RIGHTS_ISSUE,2024-01-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/167169,
+SZC,RIGHTS_ISSUE,2024-01-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/166157,
+SZC,CASH_DIVIDEND,2020-08-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/71058,
+TBC,CASH_DIVIDEND,2021-02-09,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/138340,
+TCH,STOCK_DIVIDEND,2025-11-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/188945,
+TCH,RIGHTS_ISSUE,2025-08-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/185983,
+TCH,CASH_DIVIDEND,2023-09-05,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/161114,
+TCH,CASH_DIVIDEND,2022-12-02,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/154660,
+TCH,CASH_DIVIDEND,2022-07-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151957,
+TCH,STOCK_DIVIDEND,2021-09-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/144264,
+TCH,RIGHTS_ISSUE,2021-09-13,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/144264,
+TCH,CASH_DIVIDEND,2020-12-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77039,
+TCH,CASH_DIVIDEND,2020-07-10,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/69406,
+TCI,STOCK_DIVIDEND,2024-05-13,2024-05-10,material event terms incomplete,https://www.vsd.vn/vi/ad/170270,https://cafef.vn/du-lieu/tci/thong-tin-chung.chn
+TCL,CASH_DIVIDEND,2020-10-28,2020-10-27,material event terms incomplete,https://www.vsd.vn/vi/ad/75476,https://cafef.vn/du-lieu/tcl/thong-tin-chung.chn
+TCL,CASH_DIVIDEND,2020-06-29,2020-06-26,material event terms incomplete,https://www.vsd.vn/vi/ad/69063,https://cafef.vn/du-lieu/tcl/thong-tin-chung.chn
+TCL,CASH_DIVIDEND,2020-03-25,2020-03-24,material event terms incomplete,https://www.vsd.vn/vi/ad/65150,https://cafef.vn/du-lieu/tcl/thong-tin-chung.chn
+TCM,CASH_DIVIDEND,2023-03-31,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/157632,
+TCO,STOCK_DIVIDEND,2024-11-27,2024-11-26,material event terms incomplete,https://www.vsd.vn/vi/ad/176497,https://cafef.vn/du-lieu/tco/thong-tin-chung.chn
+TCO,CASH_DIVIDEND,2020-11-09,2020-11-06,material event terms incomplete,https://www.vsd.vn/vi/ad/75827,https://cafef.vn/du-lieu/tco/thong-tin-chung.chn
+TCT,CASH_DIVIDEND,2021-11-25,2021-11-24,material event terms incomplete,https://www.vsd.vn/vi/ad/145990,https://cafef.vn/du-lieu/tct/thong-tin-chung.chn
+TCT,CASH_DIVIDEND,2020-10-29,2020-10-28,material event terms incomplete,https://www.vsd.vn/vi/ad/75477,https://cafef.vn/du-lieu/tct/thong-tin-chung.chn
+TDM,RIGHTS_ISSUE,2023-12-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/165811,
+TDP,RIGHTS_ISSUE,2024-01-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/166779,
+TDP,STOCK_DIVIDEND,2022-12-08,2022-12-07,"term conflict official=0.12, reference=12",https://www.vsd.vn/vi/ad/154753,https://cafef.vn/du-lieu/tdp/thong-tin-chung.chn
+TEG,RIGHTS_ISSUE,2023-12-04,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/164973,
+TEG,RIGHTS_ISSUE,2021-08-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143997,
+THG,CASH_DIVIDEND,2022-03-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148722,
+TIP,CASH_DIVIDEND,2022-12-30,2022-12-29,"term conflict official=1000, reference=800",https://www.vsd.vn/vi/ad/155195,https://cafef.vn/du-lieu/tip/thong-tin-chung.chn
+TIP,RIGHTS_ISSUE,2022-04-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149986,
+TIP,CASH_DIVIDEND,2021-01-15,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77294,
+TIX,CASH_DIVIDEND,2025-11-24,2025-11-21,material event terms incomplete,https://www.vsd.vn/vi/ad/188649,https://cafef.vn/du-lieu/tix/thong-tin-chung.chn
+TIX,CASH_DIVIDEND,2024-11-21,2024-11-20,material event terms incomplete,https://www.vsd.vn/vi/ad/176292,https://cafef.vn/du-lieu/tix/thong-tin-chung.chn
+TIX,CASH_DIVIDEND,2023-11-23,2023-11-22,material event terms incomplete,https://www.vsd.vn/vi/ad/164161,https://cafef.vn/du-lieu/tix/thong-tin-chung.chn
+TIX,CASH_DIVIDEND,2022-11-23,2022-11-22,material event terms incomplete,https://www.vsd.vn/vi/ad/154364,https://cafef.vn/du-lieu/tix/thong-tin-chung.chn
+TIX,CASH_DIVIDEND,2021-11-15,2021-11-12,material event terms incomplete,https://www.vsd.vn/vi/ad/145557,https://cafef.vn/du-lieu/tix/thong-tin-chung.chn
+TIX,CASH_DIVIDEND,2021-05-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141341,
+TIX,CASH_DIVIDEND,2020-11-25,2020-11-24,material event terms incomplete,https://www.vsd.vn/vi/ad/76029,https://cafef.vn/du-lieu/tix/thong-tin-chung.chn
+TIX,CASH_DIVIDEND,2020-05-22,2020-05-21,material event terms incomplete,https://www.vsd.vn/vi/ad/67824,https://cafef.vn/du-lieu/tix/thong-tin-chung.chn
+TLD,STOCK_DIVIDEND,2021-12-24,2021-12-23,material event terms incomplete,https://www.vsd.vn/vi/ad/146444,https://cafef.vn/du-lieu/tld/thong-tin-chung.chn
+TLD,STOCK_DIVIDEND,2020-12-29,2020-12-28,material event terms incomplete,https://www.vsd.vn/vi/ad/77058,https://cafef.vn/du-lieu/tld/thong-tin-chung.chn
+TLD,RIGHTS_ISSUE,2020-06-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/69146,
+TLG,STOCK_DIVIDEND,2024-11-15,2024-11-14,material event terms incomplete,https://www.vsd.vn/vi/ad/176348,https://cafef.vn/du-lieu/tlg/thong-tin-chung.chn
+TLH,STOCK_DIVIDEND,2023-06-21,2023-06-21,material event terms incomplete,https://www.vsd.vn/vi/ad/159339,https://cafef.vn/du-lieu/tlh/thong-tin-chung.chn
+TMP,CASH_DIVIDEND,2022-06-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/151293,
+TN1,STOCK_DIVIDEND,2024-08-19,2024-08-16,material event terms incomplete,https://www.vsd.vn/vi/ad/173565,https://cafef.vn/du-lieu/tn1/thong-tin-chung.chn
+TN1,STOCK_DIVIDEND,2023-07-17,2023-07-17,material event terms incomplete,https://www.vsd.vn/vi/ad/159811,https://cafef.vn/du-lieu/tn1/thong-tin-chung.chn
+TN1,STOCK_DIVIDEND,2022-06-17,2022-06-16,material event terms incomplete,https://www.vsd.vn/vi/ad/151220,https://cafef.vn/du-lieu/tn1/thong-tin-chung.chn
+TN1,STOCK_DIVIDEND,2021-07-26,2021-07-23,material event terms incomplete,https://www.vsd.vn/vi/ad/143089,https://cafef.vn/du-lieu/tn1/thong-tin-chung.chn
+TN1,RIGHTS_ISSUE,2021-01-22,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77570,
+TNA,STOCK_DIVIDEND,2021-11-24,2021-11-23,material event terms incomplete,https://www.vsd.vn/vi/ad/145927,https://cafef.vn/du-lieu/tna/thong-tin-chung.chn
+TNA,STOCK_DIVIDEND,2020-08-21,2020-08-20,material event terms incomplete,https://www.vsd.vn/vi/ad/71227,https://cafef.vn/du-lieu/tna/thong-tin-chung.chn
+TNA,CASH_DIVIDEND,2020-07-09,2020-07-08,material event terms incomplete,https://www.vsd.vn/vi/ad/69499,https://cafef.vn/du-lieu/tna/thong-tin-chung.chn
+TNH,RIGHTS_ISSUE,2024-09-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/174594,
+TNH,RIGHTS_ISSUE,2023-04-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/158075,
+TPB,CASH_DIVIDEND,2023-02-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/156165,
+TPC,CASH_DIVIDEND,2020-08-24,2020-08-21,material event terms incomplete,https://www.vsd.vn/vi/ad/71091,https://cafef.vn/du-lieu/tpc/thong-tin-chung.chn
+TSC,RIGHTS_ISSUE,2022-03-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149240,
+TV2,STOCK_DIVIDEND,2022-11-16,2022-11-15,material event terms incomplete,https://www.vsd.vn/vi/ad/154401,https://cafef.vn/du-lieu/tv2/thong-tin-chung.chn
+TV2,STOCK_DIVIDEND,2021-07-19,2021-07-16,material event terms incomplete,https://www.vsd.vn/vi/ad/142992,https://cafef.vn/du-lieu/tv2/thong-tin-chung.chn
+TV2,STOCK_DIVIDEND,2020-08-13,2020-08-12,material event terms incomplete,https://www.vsd.vn/vi/ad/70979,https://cafef.vn/du-lieu/tv2/thong-tin-chung.chn
+TVB,RIGHTS_ISSUE,2022-04-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149576,
+TVB,CASH_DIVIDEND,2022-03-31,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/149271,
+TVB,RIGHTS_ISSUE,2021-01-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77536,
+TVB,BONUS_SHARE,2020-07-15,2020-07-14,material event terms incomplete,https://www.vsd.vn/vi/ad/69734,https://cafef.vn/du-lieu/tvb/thong-tin-chung.chn
+TVS,RIGHTS_ISSUE,2025-09-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/187165,
+TVS,RIGHTS_ISSUE,2020-02-05,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/62637,
+TYA,CASH_DIVIDEND,2025-06-24,2025-06-23,material event terms incomplete,https://www.vsd.vn/vi/ad/183919,https://cafef.vn/du-lieu/tya/thong-tin-chung.chn
+TYA,CASH_DIVIDEND,2024-06-28,2024-06-27,material event terms incomplete,https://www.vsd.vn/vi/ad/172137,https://cafef.vn/du-lieu/tya/thong-tin-chung.chn
+TYA,CASH_DIVIDEND,2020-08-07,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/70759,
+UIC,CASH_DIVIDEND,2021-05-31,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/141756,
+VCB,STOCK_DIVIDEND,2023-07-26,2023-07-25,material event terms incomplete,https://www.vsd.vn/vi/ad/159971,https://cafef.vn/du-lieu/vcb/thong-tin-chung.chn
+VCI,CASH_DIVIDEND,2025-02-07,2025-02-06,material event terms incomplete,https://www.vsd.vn/vi/ad/178765,https://cafef.vn/du-lieu/vci/thong-tin-chung.chn
+VCI,CASH_DIVIDEND,2024-08-16,2024-08-15,material event terms incomplete,https://www.vsd.vn/vi/ad/173663,https://cafef.vn/du-lieu/vci/thong-tin-chung.chn
+VDP,CASH_DIVIDEND,2022-03-28,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148765,
+VDS,BONUS_SHARE,2025-06-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/183532,
+VDS,STOCK_DIVIDEND,2024-06-24,2024-06-21,material event terms incomplete,https://www.vsd.vn/vi/ad/171363,https://cafef.vn/du-lieu/vds/thong-tin-chung.chn
+VDS,BONUS_SHARE,2024-06-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/171363,
+VDS,STOCK_DIVIDEND,2022-08-01,2022-07-29,material event terms incomplete,https://www.vsd.vn/vi/ad/152024,https://cafef.vn/du-lieu/vds/thong-tin-chung.chn
+VDS,BONUS_SHARE,2022-08-01,2022-07-29,material event terms incomplete,https://www.vsd.vn/vi/ad/152024,https://cafef.vn/du-lieu/vds/thong-tin-chung.chn
+VDS,RIGHTS_ISSUE,2022-08-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/152024,
+VDS,CASH_DIVIDEND,2021-01-19,2021-01-18,material event terms incomplete,https://www.vsd.vn/vi/ad/77360,https://cafef.vn/du-lieu/vds/thong-tin-chung.chn
+VHM,CASH_DIVIDEND,2022-06-01,2022-05-31,material event terms incomplete,https://www.vsd.vn/vi/ad/150909,https://cafef.vn/du-lieu/vhm/thong-tin-chung.chn
+VIB,BONUS_SHARE,2025-07-18,2025-07-17,material event terms incomplete,https://www.vsd.vn/vi/ad/184839,https://cafef.vn/du-lieu/vib/thong-tin-chung.chn
+VIB,RIGHTS_ISSUE,2025-07-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/184839,
+VIB,BONUS_SHARE,2024-08-23,2024-08-22,material event terms incomplete,https://www.vsd.vn/vi/ad/173650,https://cafef.vn/du-lieu/vib/thong-tin-chung.chn
+VIB,RIGHTS_ISSUE,2024-08-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/173650,
+VIB,BONUS_SHARE,2023-06-23,2023-06-22,material event terms incomplete,https://www.vsd.vn/vi/ad/159450,https://cafef.vn/du-lieu/vib/thong-tin-chung.chn
+VIB,RIGHTS_ISSUE,2023-06-23,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/159450,
+VIB,BONUS_SHARE,2022-05-16,2022-05-13,material event terms incomplete,https://www.vsd.vn/vi/ad/150340,https://cafef.vn/du-lieu/vib/thong-tin-chung.chn
+VIB,BONUS_SHARE,2021-06-10,2021-06-09,material event terms incomplete,https://www.vsd.vn/vi/ad/142261,https://cafef.vn/du-lieu/vib/thong-tin-chung.chn
+VIB,BONUS_SHARE,2020-11-20,2020-11-19,"term conflict official=0.2, reference=2",https://www.vsd.vn/vi/ad/76210,https://cafef.vn/du-lieu/vib/thong-tin-chung.chn
+VIC,STOCK_DIVIDEND,2021-08-18,2021-08-17,material event terms incomplete,https://www.vsd.vn/vi/ad/143749,https://cafef.vn/du-lieu/vic/thong-tin-chung.chn
+VIP,CASH_DIVIDEND,2021-07-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/143302,
+VIX,RIGHTS_ISSUE,2024-08-01,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/173194,
+VIX,RIGHTS_ISSUE,2022-02-25,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/147873,
+VIX,RIGHTS_ISSUE,2021-09-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/144122,
+VND,STOCK_DIVIDEND,2024-05-30,2024-05-29,material event terms incomplete,https://www.vsd.vn/vi/ad/171216,https://cafef.vn/du-lieu/vnd/thong-tin-chung.chn
+VND,RIGHTS_ISSUE,2024-05-30,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/171216,
+VND,RIGHTS_ISSUE,2022-03-11,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148353,
+VNL,CASH_DIVIDEND,2022-03-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/148979,
+VNL,CASH_DIVIDEND,2020-11-17,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/75976,
+VNS,CASH_DIVIDEND,2023-07-28,2023-07-27,material event terms incomplete,https://www.vsd.vn/vi/ad/160186,https://cafef.vn/du-lieu/vns/thong-tin-chung.chn
+VPB,STOCK_DIVIDEND,2021-10-08,2021-10-07,material event terms incomplete,https://www.vsd.vn/vi/ad/144957,https://cafef.vn/du-lieu/vpb/thong-tin-chung.chn
+VPG,RIGHTS_ISSUE,2021-12-21,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/146465,
+VPG,RIGHTS_ISSUE,2020-04-14,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/66623,
+VPI,STOCK_DIVIDEND,2024-07-26,2024-07-25,material event terms incomplete,https://www.vsd.vn/vi/ad/172908,https://cafef.vn/du-lieu/vpi/thong-tin-chung.chn
+VPI,STOCK_DIVIDEND,2020-10-27,2020-10-26,material event terms incomplete,https://www.vsd.vn/vi/ad/75643,https://cafef.vn/du-lieu/vpi/thong-tin-chung.chn
+VSC,RIGHTS_ISSUE,2024-01-18,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/166378,
+VSC,RIGHTS_ISSUE,2021-11-09,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145466,
+VSC,RIGHTS_ISSUE,2021-10-26,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/145183,
+VSC,CASH_DIVIDEND,2021-04-29,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/140958,
+VSH,RIGHTS_ISSUE,2021-01-08,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/77284,
+VSI,CASH_DIVIDEND,2025-06-20,2025-06-19,material event terms incomplete,https://www.vsd.vn/vi/ad/183849,https://cafef.vn/du-lieu/vsi/thong-tin-chung.chn
+VSI,CASH_DIVIDEND,2024-06-17,2024-06-14,material event terms incomplete,https://www.vsd.vn/vi/ad/171481,https://cafef.vn/du-lieu/vsi/thong-tin-chung.chn
+VTB,CASH_DIVIDEND,2022-09-14,2022-09-13,material event terms incomplete,https://www.vsd.vn/vi/ad/152923,https://cafef.vn/du-lieu/vtb/thong-tin-chung.chn
+VTB,CASH_DIVIDEND,2021-08-27,2021-08-26,material event terms incomplete,https://www.vsd.vn/vi/ad/143839,https://cafef.vn/du-lieu/vtb/thong-tin-chung.chn
+VTB,CASH_DIVIDEND,2020-11-24,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/75966,
+YBM,RIGHTS_ISSUE,2025-12-03,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/189483,
+YEG,RIGHTS_ISSUE,2025-01-20,,missing_ex_date_corroboration,https://www.vsd.vn/vi/ad/178429,
