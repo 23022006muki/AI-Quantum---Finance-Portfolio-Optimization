@@ -54,6 +54,14 @@ test suite và mặc định tái chạy đủ pipeline 33 folds. Nó xuất mô
 kết quả tín hiệu/AUR/solver, hiệu quả danh mục, rổ cuối và kết luận H1–H6. Đặt
 `RUN_FULL_PIPELINE=False` nếu chỉ cần đọc toàn bộ artifact chuẩn mà không train lại.
 
+Nếu muốn lấy mã nguồn từ GitHub nhưng dùng ZIP dữ liệu đang nằm trên máy cá nhân:
+
+[![Open Local Data Notebook In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/23022006muki/AI-Quantum---Finance-Portfolio-Optimization/blob/main/quantum_portfolio_data/colab/AI_Quantum_GitHub_Code_Local_Data.ipynb)
+
+Notebook thứ hai yêu cầu upload file
+`quantum_portfolio_data/colab_bundle/data_17_8_runtime.zip` từ máy hoặc chọn bản ZIP
+trên Google Drive. Nó không đọc trực tiếp ổ `C:`/`D:` vì Colab chạy trên máy chủ từ xa.
+
 ## Cài đặt
 
 Yêu cầu Python 3.11 trở lên.
