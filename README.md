@@ -33,18 +33,26 @@ Annealing và Penalty-QAOA.
 
 | Hạng mục | Trạng thái |
 |---|---|
-| Automated tests | **42/42 passed** |
-| Demo fixture end-to-end | **Audit pass** |
-| Research-mode integration test | **Pass với hợp đồng dữ liệu tổng hợp hợp lệ** |
-| Panel thị trường | 467.164 dòng, 300 mã, 2020–2025 |
-| Research run trên panel hiện có | **Blocked-valid trước huấn luyện/backtest** |
+| Automated tests | **80/80 passed** |
+| Data 17/8 panel | 157.826 dòng, 120 mã complete-case, 2020–2025 |
+| Benchmark | VNAllShare TRI, 1.499/1.499 phiên |
+| Walk-forward experiment | **33/33 folds completed** |
+| Data-quality / leakage audit | `pass` / `pass_with_limitations` |
+| Research classification | **Exploratory, không phải confirmatory full-HOSE** |
 
-Research run thật đang chờ lịch sử niêm yết/hủy niêm yết HOSE có provenance, hợp đồng
-điều chỉnh giá, xử lý 47 outlier và benchmark VN-Index total-return point-in-time. Hệ thống
-fail-closed nên không xuất metrics nghiên cứu khi những điều kiện này chưa đạt.
+Run chuẩn `20260820T160429-4f2cfc123d` đạt lợi nhuận tích lũy sau chi phí 2,25%,
+nhưng không vượt VNAllShare TRI và chưa có bằng chứng thống kê cho hiệu quả tài chính
+vượt trội. XY-QAOA bảo toàn cardinality trên ideal simulator; kết quả không chứng minh
+quantum advantage. Dữ liệu tài chính point-in-time và ngành lịch sử vẫn là giới hạn chính.
 
-Mã hoàn thiện mới nhất nằm tại nhánh
-[`fix/research-validity`](https://github.com/23022006muki/AI-Quantum---Finance-Portfolio-Optimization/tree/fix/research-validity).
+## Chạy trên Google Colab
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/23022006muki/AI-Quantum---Finance-Portfolio-Optimization/blob/main/quantum_portfolio_data/colab/AI_Quantum_Portfolio_End_to_End.ipynb)
+
+Notebook tự clone commit dữ liệu đã khóa, kiểm tra SHA-256, cài toàn bộ dependency, chạy
+test suite và mặc định tái chạy đủ pipeline 33 folds. Nó xuất mô tả hệ thống, audit dữ liệu,
+kết quả tín hiệu/AUR/solver, hiệu quả danh mục, rổ cuối và kết luận H1–H6. Đặt
+`RUN_FULL_PIPELINE=False` nếu chỉ cần đọc toàn bộ artifact chuẩn mà không train lại.
 
 ## Cài đặt
 
@@ -101,6 +109,8 @@ backtest, ablation và sensitivity analysis.
 
 ```text
 quantum_portfolio_data/
+├── colab/                   # Notebook chạy end-to-end trên Google Colab
+├── colab_bundle/            # Runtime data + published experiment có SHA-256
 ├── configs/                 # Cấu hình demo và research
 ├── docs/                    # Phương pháp, governance và data contracts
 ├── results/latest_research/ # Trạng thái research công khai, không chứa dữ liệu thô
@@ -121,6 +131,7 @@ quantum_portfolio_data/
 
 ## Giấy phép và dữ liệu
 
-Repository không lưu cookies, API secrets hoặc dữ liệu thị trường thô. Người sử dụng chịu
-trách nhiệm tuân thủ điều khoản của nhà cung cấp dữ liệu và chỉ công bố kết quả nghiên cứu
-khi toàn bộ quality gate và leakage audit trả về `pass`.
+Repository không lưu cookies hoặc API secrets. Gói Colab chỉ chứa panel complete-case và
+artifact cần để tái lập; kho raw disclosure/PDF cục bộ 54,6 GB không được sao chép lên
+GitHub. Người sử dụng chịu trách nhiệm tuân thủ điều khoản của nhà cung cấp và không được
+diễn giải run exploratory thành kết quả confirmatory toàn HOSE.
