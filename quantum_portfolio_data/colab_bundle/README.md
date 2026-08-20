@@ -7,7 +7,7 @@ inspect the published Data 17/8 experiment in Google Colab.
 
 | Archive | SHA-256 | Contents |
 |---|---|---|
-| `data_17_8_runtime.zip` | `f69b1747e8fee8412a1cc089f8c7ef4c0be5aeed4e59a2fc6da7833dd1abf37c` | The validated 120-stock complete-case price panel, benchmark, security masters, corporate-action table, universe tables, data contracts, and audit reports required by `run-data-17-8`. |
+| `data_17_8_runtime.zip` | `4db33cf993977a9e55baf9e7c12ea52a4bc7adb70fe7fd8d29c4ff7188908f30` | The validated 120-stock complete-case price panel, benchmark, security masters, corporate-action table, disclosure/document indexes, universe tables, data contracts, and audit reports required by `run-data-17-8`. |
 | `data_17_8_published_experiment.zip` | `5d5faefa264f18647ab86501664013d593a8038b222637f477ad586f52aae5ec` | All 54 artifacts from experiment `20260820T160429-4f2cfc123d`, including features, fold outputs, solver traces, statistical tests, figures, reports, and manifests. |
 
 The runtime archive expands directly into `outputs/Data 17_8/`. The experiment
