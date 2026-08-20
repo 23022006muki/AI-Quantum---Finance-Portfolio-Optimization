@@ -37,6 +37,25 @@ from .price_adjustment import (
     prepare_research_v2_runtime,
 )
 from .universe_pit import build_historical_universe_pit
+from .data_17_8 import (
+    audit_data_17_8,
+    build_financial_statement_facts,
+    build_historical_sector_pit,
+    crawl_current_hose_sector_reference,
+    crawl_data_17_8_cafef_price_crosscheck,
+    crawl_data_17_8_prices,
+    crawl_hose_disclosure_index,
+    crawl_hose_documents,
+    crawl_hose_tri_benchmark,
+    crawl_vietstock_company_documents,
+    data_17_8_workspace,
+    extract_company_document_archives,
+    extract_company_document_text,
+    finalize_data_17_8_research_universe,
+    initialize_data_17_8,
+    stage_data_17_8_corporate_actions,
+    write_data_17_8_source_report,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -242,6 +261,51 @@ def parser() -> argparse.ArgumentParser:
     )
     research_v2.add_argument(
         "--config", type=Path, default=ROOT / "configs" / "hose_research_v2.yaml"
+    )
+    data_17_8_init = sub.add_parser(
+        "init-data-17-8",
+        help="Initialize the isolated Data 17/8 workspace from immutable Data A prices",
+    )
+    data_17_8_init.add_argument(
+        "--base-workspace", type=Path, default=ROOT / "outputs" / "Data A"
+    )
+    data_17_8_crawl = sub.add_parser(
+        "crawl-data-17-8",
+        help="Crawl official HOSE disclosures, documents, TRI benchmark and sector reference",
+    )
+    data_17_8_crawl.add_argument(
+        "--stage",
+        choices=[
+            "all", "disclosures", "documents", "benchmark", "sector",
+            "corporate-actions", "prices", "cafef-prices",
+        ],
+        default="all",
+    )
+    data_17_8_crawl.add_argument("--from", dest="start", default="2020-01-01")
+    data_17_8_crawl.add_argument("--to", dest="end", default="2025-12-31")
+    data_17_8_crawl.add_argument("--max-workers", type=int, default=4)
+    data_17_8_crawl.add_argument("--metadata-only", action="store_true")
+    data_17_8_crawl.add_argument(
+        "--pause-seconds", type=float, default=6.4,
+        help="Minimum delay between uncached KBS price requests (at least 6.1 seconds)",
+    )
+    data_17_8_extract = sub.add_parser(
+        "extract-data-17-8-documents",
+        help="Extract native PDF text, OCR low-text pages and build PIT facts/sectors",
+    )
+    data_17_8_extract.add_argument("--max-workers", type=int, default=2)
+    data_17_8_extract.add_argument("--max-documents", type=int)
+    data_17_8_extract.add_argument("--maximum-pages", type=int, default=250)
+    data_17_8_extract.add_argument("--no-ocr", action="store_true")
+    sub.add_parser(
+        "audit-data-17-8", help="Run the fail-closed Data 17/8 source and PIT audit"
+    )
+    data_17_8_run = sub.add_parser(
+        "run-data-17-8",
+        help="Run the locked Data 17/8 exploratory model after source auditing",
+    )
+    data_17_8_run.add_argument(
+        "--config", type=Path, default=ROOT / "configs" / "data_17_8.yaml"
     )
     sub.add_parser("audit-data-sources", help="Write the current source and research-data gap inventory")
     return p
@@ -562,6 +626,76 @@ def main(argv=None) -> int:
             raise RuntimeError(f"Research V2 artifact already exists: {out}")
         shutil.copytree(temporary_out, out)
         print_experiment_summary(out)
+    elif args.command == "init-data-17-8":
+        result = initialize_data_17_8(ROOT, args.base_workspace.resolve())
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "crawl-data-17-8":
+        initialize_data_17_8(ROOT)
+        stages = (
+            [
+                "disclosures", "documents", "sector", "corporate-actions",
+                "prices", "cafef-prices", "benchmark",
+            ]
+            if args.stage == "all" else [args.stage]
+        )
+        results = {}
+        for stage in stages:
+            if stage == "disclosures":
+                results[stage] = crawl_hose_disclosure_index(
+                    ROOT, args.start, args.end, args.max_workers
+                )
+            elif stage == "documents":
+                results["hose_documents"] = crawl_hose_documents(
+                    ROOT, args.max_workers, download=not args.metadata_only
+                )
+                results["vietstock_documents"] = crawl_vietstock_company_documents(
+                    ROOT, args.max_workers, download=not args.metadata_only
+                )
+            elif stage == "benchmark":
+                results[stage] = crawl_hose_tri_benchmark(ROOT, max_workers=args.max_workers)
+            elif stage == "sector":
+                results[stage] = crawl_current_hose_sector_reference(ROOT)
+            elif stage == "corporate-actions":
+                results[stage] = stage_data_17_8_corporate_actions(ROOT)
+            elif stage == "prices":
+                results[stage] = crawl_data_17_8_prices(
+                    ROOT, args.start, args.end, args.pause_seconds
+                )
+            elif stage == "cafef-prices":
+                results[stage] = crawl_data_17_8_cafef_price_crosscheck(
+                    ROOT, args.start, args.end, args.max_workers
+                )
+                results["research_universe"] = finalize_data_17_8_research_universe(ROOT)
+        print(json.dumps(results, indent=2, ensure_ascii=False, default=str))
+    elif args.command == "extract-data-17-8-documents":
+        archives = extract_company_document_archives(ROOT)
+        extraction = extract_company_document_text(
+            ROOT,
+            max_workers=args.max_workers,
+            maximum_documents=args.max_documents,
+            maximum_pages=args.maximum_pages,
+            use_ocr=not args.no_ocr,
+        )
+        financial = build_financial_statement_facts(ROOT)
+        sector = build_historical_sector_pit(ROOT)
+        print(json.dumps({
+            "archives": archives,
+            "extraction": extraction,
+            "financial_statements": financial,
+            "historical_sector": sector,
+        }, indent=2, ensure_ascii=False, default=str))
+    elif args.command == "audit-data-17-8":
+        audit = audit_data_17_8(ROOT)
+        report = write_data_17_8_source_report(ROOT)
+        audit["report"] = str(report)
+        print(json.dumps(audit, indent=2, ensure_ascii=False, default=str))
+    elif args.command == "run-data-17-8":
+        audit = audit_data_17_8(ROOT)
+        if not audit.get("exploratory_run_permitted"):
+            raise SystemExit("DATA_17_8_BLOCKED: price panel did not pass the exploratory gate")
+        output = run_experiment(data_17_8_workspace(ROOT), args.config.resolve())
+        write_data_17_8_source_report(ROOT)
+        print_experiment_summary(output)
     elif args.command == "audit-data-sources":
         print(json.dumps(audit_available_data_sources(paths), indent=2, ensure_ascii=False))
     elif args.command == "run-experiment":

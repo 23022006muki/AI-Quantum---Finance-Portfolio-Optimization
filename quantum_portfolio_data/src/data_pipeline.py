@@ -29,6 +29,7 @@ HISTORICAL_UNIVERSE_METHODS = {
 VERIFIED_ADJUSTMENT_POLICIES = {
     "verified_corporate_action_adjusted",
     "unadjusted_with_verified_actions_join",
+    "verified_vendor_total_return_adjusted",
     "fixture",
 }
 UNIVERSE_DEFINITIONS = {"hose_all_listed", "index_membership"}

@@ -124,27 +124,105 @@ def attach_point_in_time_features(features: pd.DataFrame, paths: Paths) -> pd.Da
     financial_path = paths.normalized / "financial_statements.parquet"
     if financial_path.exists():
         financial = pd.read_parquet(financial_path)
-        financial["available_at"] = pd.to_datetime(financial["available_at"])
-        financial = financial.sort_values(["ticker", "available_at"])
-        financial["roe_pit"] = financial["net_income"] / financial["equity"].replace(0, np.nan)
-        financial["revenue_growth_yoy_pit"] = financial.groupby("ticker")["revenue"].pct_change(4)
+        if "usable_for_model" in financial:
+            financial = financial[financial["usable_for_model"].fillna(False)].copy()
+        required_columns = {
+            "ticker", "available_at", "fiscal_period_end", "revenue",
+            "net_income", "equity",
+        }
+        if not financial.empty and required_columns.issubset(financial.columns):
+            financial["available_at"] = pd.to_datetime(financial["available_at"], errors="coerce")
+            financial["fiscal_period_end"] = pd.to_datetime(
+                financial["fiscal_period_end"], errors="coerce"
+            )
+            financial = financial.dropna(
+                subset=["ticker", "available_at", "fiscal_period_end"]
+            ).sort_values(["ticker", "fiscal_period_end", "available_at"])
+            financial = financial.drop_duplicates(
+                ["ticker", "fiscal_period_end", "available_at"], keep="last"
+            )
+            financial["roe_pit"] = (
+                financial["net_income"] / financial["equity"].replace(0, np.nan)
+            )
+            # Match the same fiscal period one year earlier using only a filing
+            # that was already public at the current filing timestamp.  A plain
+            # pct_change(4) is invalid when annual, quarterly and revised filings
+            # coexist in the same disclosure stream.
+            yoy_values = []
+            for row in financial.itertuples(index=False):
+                previous_period = pd.Timestamp(row.fiscal_period_end) - pd.DateOffset(years=1)
+                candidates = financial[
+                    financial["ticker"].astype(str).eq(str(row.ticker))
+                    & financial["fiscal_period_end"].eq(previous_period)
+                    & financial["available_at"].le(pd.Timestamp(row.available_at))
+                ]
+                if candidates.empty:
+                    yoy_values.append(np.nan)
+                    continue
+                previous_revenue = pd.to_numeric(
+                    candidates.sort_values("available_at").iloc[-1]["revenue"],
+                    errors="coerce",
+                )
+                current_revenue = pd.to_numeric(getattr(row, "revenue"), errors="coerce")
+                if pd.isna(previous_revenue) or previous_revenue == 0 or pd.isna(current_revenue):
+                    yoy_values.append(np.nan)
+                else:
+                    yoy_values.append(float(current_revenue / previous_revenue - 1.0))
+            financial["revenue_growth_yoy_pit"] = yoy_values
+            # Multiple statements can become available at the same timestamp.
+            # Collapse to one deterministic PIT feature snapshot before as-of joins.
+            financial = (
+                financial.sort_values(["ticker", "available_at", "fiscal_period_end"])
+                .drop_duplicates(["ticker", "available_at"], keep="last")
+            )
+            for ticker, group in features.groupby("ticker", sort=False):
+                right = financial[financial.ticker == ticker][
+                    ["available_at", "roe_pit", "revenue_growth_yoy_pit"]
+                ].rename(columns={"available_at": "financial_available_at"}).sort_values(
+                    "financial_available_at"
+                )
+                left = group.drop(columns=["roe_pit", "revenue_growth_yoy_pit"]).sort_values(
+                    "feature_available_at"
+                )
+                if right.empty:
+                    left["roe_pit"] = np.nan
+                    left["revenue_growth_yoy_pit"] = np.nan
+                else:
+                    left = pd.merge_asof(
+                        left, right, left_on="feature_available_at",
+                        right_on="financial_available_at", direction="backward",
+                        allow_exact_matches=True,
+                    ).drop(columns=["financial_available_at"])
+                out_frames.append(left)
+            features = pd.concat(out_frames, ignore_index=True)
+    sector_path = paths.normalized / "sector_pit.parquet"
+    if sector_path.exists():
+        sector = pd.read_parquet(sector_path)
+        sector["available_at"] = pd.to_datetime(sector["available_at"], errors="coerce")
+        sector = sector.dropna(subset=["ticker", "sector", "available_at"])
+        sector_frames = []
         for ticker, group in features.groupby("ticker", sort=False):
-            right = financial[financial.ticker == ticker][
-                ["available_at", "roe_pit", "revenue_growth_yoy_pit"]
-            ].rename(columns={"available_at": "financial_available_at"}).sort_values("financial_available_at")
-            left = group.drop(columns=["roe_pit", "revenue_growth_yoy_pit"]).sort_values(
+            right = sector[sector["ticker"].astype(str).eq(str(ticker))][
+                ["available_at", "sector"]
+            ].rename(columns={"available_at": "sector_available_at"}).sort_values(
+                "sector_available_at"
+            )
+            left = group.drop(columns=["sector"], errors="ignore").sort_values(
                 "feature_available_at"
             )
             if right.empty:
-                left["roe_pit"] = np.nan
-                left["revenue_growth_yoy_pit"] = np.nan
+                left["sector"] = pd.NA
             else:
                 left = pd.merge_asof(
-                    left, right, left_on="feature_available_at", right_on="financial_available_at",
-                    direction="backward", allow_exact_matches=True,
-                ).drop(columns=["financial_available_at"])
-            out_frames.append(left)
-        features = pd.concat(out_frames, ignore_index=True)
+                    left,
+                    right,
+                    left_on="feature_available_at",
+                    right_on="sector_available_at",
+                    direction="backward",
+                    allow_exact_matches=True,
+                ).drop(columns=["sector_available_at"])
+            sector_frames.append(left)
+        features = pd.concat(sector_frames, ignore_index=True)
     macro_path = paths.normalized / "macro.parquet"
     if macro_path.exists():
         macro = pd.read_parquet(macro_path)
@@ -1062,6 +1140,14 @@ def simulated_annealing(q: np.ndarray, k: int, seed: int, steps: int = 800) -> d
     bits[rng.choice(n, k, replace=False)] = 1
     best, best_e = bits.copy(), energy(bits, q)
     cur_e = best_e
+    # When k is 0 or n the cardinality-feasible subspace contains a single
+    # state, so there is no one-for-zero swap to anneal.
+    if k in (0, n):
+        return {
+            "method": "simulated_annealing", "bits": best,
+            "energy": float(best_e), "feasibility_rate": 1.0,
+            "runtime_seconds": time.perf_counter() - start, "seed": seed,
+        }
     for step in range(steps):
         ones, zeros = np.flatnonzero(bits), np.flatnonzero(1 - bits)
         proposal = bits.copy()
@@ -1408,7 +1494,8 @@ def optimize_weights(
     ):
         raise ValueError(
             f"Infeasible weight bounds for selected cardinality n={n}, "
-            f"total_lower={lower_bounds.sum()}, total_upper={upper_bounds.sum()}"
+            f"total_lower={lower_bounds.sum()}, total_upper={upper_bounds.sum()}, "
+            f"lower={lower_bounds.tolist()}, upper={upper_bounds.tolist()}"
         )
     prev = np.ones(n) / n if previous is None or len(previous) != n else previous
     def objective(w):
@@ -1944,6 +2031,7 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         pre_constraints = cfg.get("constraints", {})
         pre_notional = pre_constraints.get("portfolio_notional_vnd")
         pre_board_lot = int(pre_constraints.get("board_lot", 1))
+        pre_adv_participation = pre_constraints.get("max_adv_participation")
         minimum_exposure = float(cfg.get("exposure", {}).get("minimum_exposure", 1.0))
         pre_cardinality = int(cfg["reduction"].get("cardinality", 1))
         if pre_notional and pre_board_lot > 1 and minimum_exposure > 0:
@@ -1959,6 +2047,18 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             execution_eligible = pd.to_numeric(snap["close"], errors="coerce").le(
                 maximum_executable_price
             )
+            # A selected security must also permit at least one board lot under
+            # the declared absolute ADV participation limit. This feasibility
+            # screen is determined before QUBO construction and is independent
+            # of subsequent portfolio returns.
+            if pre_adv_participation is not None:
+                lot_value = pre_board_lot * pd.to_numeric(
+                    snap["close"], errors="coerce"
+                )
+                adv_capacity = float(pre_adv_participation) * pd.to_numeric(
+                    snap["adv_20d"], errors="coerce"
+                )
+                execution_eligible &= lot_value.le(adv_capacity)
             pre_solver_execution_exclusions = int((~execution_eligible).sum())
             aur_snapshot = snap[execution_eligible].copy()
             if len(aur_snapshot) < pre_cardinality:
@@ -2170,6 +2270,33 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
         execution_prices = {
             ticker: float(selected_snapshot.at[ticker, "close"]) for ticker in chosen
         }
+        # The market-regime overlay may propose an equity sleeve too small to
+        # execute one board lot within the absolute ADV limit. Raise exposure
+        # only to the minimum mechanically feasible level; this is an execution
+        # constraint, not a return-dependent signal adjustment.
+        if portfolio_notional and board_lot > 1 and adv_participation:
+            required_exposure = max(
+                board_lot * execution_prices[ticker]
+                / max(
+                    float(adv_participation)
+                    * float(selected_snapshot.at[ticker, "adv_20d"]),
+                    1e-12,
+                )
+                for ticker in chosen
+            )
+            if required_exposure > 1 + 1e-12:
+                raise ValueError(
+                    f"Fold {fold['fold']} contains a board lot exceeding its absolute ADV capacity."
+                )
+            if required_exposure > equity_exposure:
+                equity_exposure = min(1.0, required_exposure * 1.000001)
+                exposure_diagnostics.update({
+                    "equity_exposure": equity_exposure,
+                    "cash_weight": 1.0 - equity_exposure,
+                    "raised_for_board_lot_adv_feasibility": True,
+                })
+            else:
+                exposure_diagnostics["raised_for_board_lot_adv_feasibility"] = False
         effective_lower = np.full(len(chosen), float(cfg["weights"]["lower"]))
         if portfolio_notional and board_lot > 1 and equity_exposure > 0:
             board_lot_sleeve_floor = np.asarray([
@@ -2179,7 +2306,10 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
             ])
             effective_lower = np.maximum(effective_lower, board_lot_sleeve_floor)
         capacity_weights = {
-            ticker: float(adv_participation * selected_snapshot.at[ticker, "adv_20d"] / portfolio_notional)
+            ticker: float(
+                adv_participation * selected_snapshot.at[ticker, "adv_20d"]
+                / (portfolio_notional * equity_exposure)
+            )
             for ticker in chosen
         } if portfolio_notional and adv_participation else {}
         per_asset_upper = np.asarray([
@@ -2192,13 +2322,16 @@ def run_experiment(project_root: Path, config_path: Path) -> Path:
                 f"capacity: aggregate upper bound={per_asset_upper.sum():.6f}."
             )
         master_latest = security_master.drop_duplicates("ticker", keep="last").set_index("ticker")
-        sector_metadata_available = "sector" in master_latest.columns
+        sector_metadata_available = (
+            "sector" in selected_snapshot.columns
+            and selected_snapshot["sector"].notna().any()
+        )
         selected_sectors = [
-            str(master_latest.at[ticker, "sector"])
+            str(selected_snapshot.at[ticker, "sector"])
             if (
                 sector_metadata_available
-                and ticker in master_latest.index
-                and pd.notna(master_latest.at[ticker, "sector"])
+                and ticker in selected_snapshot.index
+                and pd.notna(selected_snapshot.at[ticker, "sector"])
             )
             else "UNCLASSIFIED"
             for ticker in chosen

@@ -17,10 +17,14 @@ dependencies = [
   "finance-datareader==0.9.202",
   "pip-system-certs==5.3",
   "streamlit==1.58.0",
+  "pypdf==6.1.3",
+  "pdfplumber==0.11.7",
+  "Pillow==11.3.0",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest==9.1.1"]
+ocr = ["rapidocr==3.9.2", "onnxruntime==1.28.0"]
 
 [project.scripts]
 quantum-portfolio = "src.cli:main"

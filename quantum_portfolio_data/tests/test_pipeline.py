@@ -13,7 +13,7 @@ from src.research import (
     energy, ewma_mean_cov, exact_solver, feasible_states, optimize_weights,
     market_regime_exposure,
     penalty_qaoa_statevector, portfolio_turnover, qubo_instance, run_experiment,
-    round_target_weights_to_board_lot, simulate_buy_and_hold,
+    round_target_weights_to_board_lot, simulated_annealing, simulate_buy_and_hold,
     technical_factor_score, xy_qaoa_statevector,
 )
 
@@ -102,6 +102,13 @@ def test_qubo_exact_matches_enumeration():
     states = feasible_states(3, 2)
     assert result["energy"] == min(energy(s, q) for s in states)
     assert result["bits"].sum() == 2
+
+
+def test_simulated_annealing_handles_single_feasible_state():
+    q = np.diag([0.1, -0.2, 0.05, -0.1])
+    result = simulated_annealing(q, k=4, seed=3)
+    assert result["bits"].tolist() == [1, 1, 1, 1]
+    assert result["feasibility_rate"] == 1.0
 
 
 def test_xy_qaoa_dicke_preserves_cardinality():

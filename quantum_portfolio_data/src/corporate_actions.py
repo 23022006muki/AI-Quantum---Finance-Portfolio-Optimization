@@ -356,13 +356,24 @@ class VSDCCorporateActionAdapter:
 
         share_matches = re.findall(
             r"(?:so huu|co dong so huu)\s*([\d.,]+)\s*co phieu\s*"
-            r"(?:duoc|se duoc)\s*nhan\s*([\d.,]+)\s*co phieu",
+            r"(?:duoc|se duoc)\s*nhan(?:\s+them)?\s*([\d.,]+)\s*co phieu",
             lower,
         )
         share_ratio = None
         if share_matches:
             denominator = _number_vi(share_matches[0][0])
             numerator = _number_vi(share_matches[0][1])
+            if denominator and numerator is not None:
+                share_ratio = numerator / denominator
+        # VSDC notices consistently publish a compact old:new entitlement ratio
+        # even when the explanatory sentence varies ("nhận thêm", "được hưởng
+        # quyền", leading zeroes, etc.).  Use it as a documented fallback.
+        execution_ratio = re.search(
+            r"ty le thuc hien\s*:\s*([\d.,]+)\s*:\s*([\d.,]+)", lower
+        )
+        if share_ratio is None and execution_ratio:
+            denominator = _number_vi(execution_ratio.group(1))
+            numerator = _number_vi(execution_ratio.group(2))
             if denominator and numerator is not None:
                 share_ratio = numerator / denominator
         if "co tuc" in lower and "bang co phieu" in lower:
@@ -381,6 +392,8 @@ class VSDCCorporateActionAdapter:
                 numerator = _number_vi(rights_match.group(2))
                 if denominator and numerator is not None:
                     rights_ratio = numerator / denominator
+            if rights_ratio is None:
+                rights_ratio = share_ratio
             price_match = re.search(
                 r"(?:gia (?:phat hanh|mua|dang ky mua))\s*:\s*([\d.,]+)\s*dong",
                 lower,

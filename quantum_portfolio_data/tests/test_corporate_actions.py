@@ -49,6 +49,24 @@ def test_vsdc_parser_extracts_official_cash_terms_and_historical_availability():
     assert row["available_at"] == pd.Timestamp("2025-09-26 10:38:28")
 
 
+def test_vsdc_parser_uses_published_execution_ratio_when_wording_says_nhan_them():
+    markup = """
+    <main><h3>AAA: Trả cổ tức bằng cổ phiếu</h3>
+    <div>Cập nhật ngày 07/10/2020 - 15:00:00</div>
+    <p>Mã chứng khoán:</p><p>AAA</p><p>Mã ISIN:</p><p>VN000000AAA4</p>
+    <p>Sàn giao dịch:</p><p>HOSE</p>
+    <p>Ngày đăng ký cuối cùng:</p><p>20/10/2020</p>
+    <p>Tỷ lệ thực hiện: 100:5 (Người sở hữu 100 cổ phiếu được nhận thêm 05 cổ phiếu mới)</p>
+    </main><h4>Tin cùng tổ chức</h4>
+    """
+    rows = VSDCCorporateActionAdapter.parse(
+        markup, "https://example.test/notice", "2026-08-17T00:00:00+00:00"
+    )
+    assert len(rows) == 1
+    assert rows[0]["event_type"] == "STOCK_DIVIDEND"
+    assert rows[0]["stock_dividend_ratio"] == 0.05
+
+
 def test_cross_source_reconciliation_verifies_only_compatible_event_terms():
     official = pd.DataFrame([{
         "security_id": "VN000000VCB4", "ticker": "VCB", "event_type": "CASH_DIVIDEND",
