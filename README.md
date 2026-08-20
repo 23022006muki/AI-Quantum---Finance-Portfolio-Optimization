@@ -62,6 +62,15 @@ Notebook thứ hai yêu cầu upload file
 `quantum_portfolio_data/colab_bundle/data_17_8_runtime.zip` từ máy hoặc chọn bản ZIP
 trên Google Drive. Nó không đọc trực tiếp ổ `C:`/`D:` vì Colab chạy trên máy chủ từ xa.
 
+Nếu muốn nhập **một CSV duy nhất** rồi để Colab tự dựng toàn bộ bảng runtime:
+
+[![Open Complete CSV Notebook In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/23022006muki/AI-Quantum---Finance-Portfolio-Optimization/blob/main/quantum_portfolio_data/colab/AI_Quantum_Upload_Complete_CSV.ipynb)
+
+File `quantum_portfolio_data/colab_data/ai_quantum_complete_dataset.csv` chứa PRICE,
+BENCHMARK, SECURITY, CORPORATE_ACTION và METADATA trong 162.373 dòng. Notebook sparse
+checkout riêng source code, chờ người dùng upload CSV/ZIP, kiểm tra SHA-256, dựng universe
+và audit trước khi cho phép chạy mô hình.
+
 ## Cài đặt
 
 Yêu cầu Python 3.11 trở lên.
