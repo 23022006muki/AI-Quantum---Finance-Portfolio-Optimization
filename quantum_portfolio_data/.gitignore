@@ -10,6 +10,8 @@ secrets/
 
 # Generated and local runtime data
 outputs/
+colab_bundle/runtime/
+colab_bundle/published_experiment/
 __pycache__/
 .pytest_cache/
 *.pyc
