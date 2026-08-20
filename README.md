@@ -69,7 +69,9 @@ Nếu muốn nhập **một CSV duy nhất** rồi để Colab tự dựng toàn
 File `quantum_portfolio_data/colab_data/ai_quantum_complete_dataset.csv` chứa PRICE,
 BENCHMARK, SECURITY, CORPORATE_ACTION và METADATA trong 162.373 dòng. Notebook sparse
 checkout riêng source code, chờ người dùng upload CSV/ZIP, kiểm tra SHA-256, dựng universe
-và audit trước khi cho phép chạy mô hình.
+và audit trước khi cho phép chạy mô hình. Để không xung đột với các gói dựng sẵn của
+Google Colab, notebook cài project và kiểm tra dependency trong môi trường ảo riêng tại
+`/content/ai_quantum_venv`; không hạ cấp thư viện của kernel Colab.
 
 ## Cài đặt
 
