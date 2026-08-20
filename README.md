@@ -71,7 +71,8 @@ BENCHMARK, SECURITY, CORPORATE_ACTION và METADATA trong 162.373 dòng. Notebook
 checkout riêng source code, chờ người dùng upload CSV/ZIP, kiểm tra SHA-256, dựng universe
 và audit trước khi cho phép chạy mô hình. Để không xung đột với các gói dựng sẵn của
 Google Colab, notebook cài project và kiểm tra dependency trong môi trường ảo riêng tại
-`/content/ai_quantum_venv`; không hạ cấp thư viện của kernel Colab.
+`/content/ai_quantum_venv` bằng PyPA `virtualenv` (không phụ thuộc `ensurepip` của image);
+không hạ cấp các thư viện khoa học của kernel Colab.
 
 ## Cài đặt
 
