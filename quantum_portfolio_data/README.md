@@ -5,6 +5,17 @@ Hệ thống point-in-time cho chuỗi:
 `data → XGBoost/EWMA → adaptive universe reduction → cardinality QUBO →`
 `XY-QAOA/Dicke → classical weights → walk-forward backtest → report`.
 
+## Google Colab standalone
+
+Notebook [`colab/AI_Quantum_Standalone_Complete_System.ipynb`](colab/AI_Quantum_Standalone_Complete_System.ipynb)
+chứa toàn bộ mã nguồn của pipeline trong các cell, không `git clone` và không tải mã nguồn
+từ GitHub/Google Drive. Người dùng chỉ cần chọn cấu hình `SMOKE` hoặc `FULL`, chạy lần lượt
+các cell và tải lên một tệp dữ liệu CSV/ZIP. Notebook tự kiểm tra SHA-256, dựng môi trường
+Python biệt lập, chạy kiểm thử, walk-forward backtest, các bộ giải đối chứng, H1–H6, bảng,
+hình và đóng gói toàn bộ artifact để tải về.
+
+[Mở notebook standalone bằng Google Colab](https://colab.research.google.com/github/23022006muki/AI-Quantum---Finance-Portfolio-Optimization/blob/main/quantum_portfolio_data/colab/AI_Quantum_Standalone_Complete_System.ipynb)
+
 ## Trạng thái dữ liệu
 
 Workspace có panel giá thị trường 444/445 mã HOSE giao cắt giai đoạn 2020–2025 và
