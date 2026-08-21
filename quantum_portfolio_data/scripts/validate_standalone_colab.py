@@ -50,7 +50,7 @@ def main() -> None:
                 target.write_text(content, encoding="utf-8")
             elif source.startswith("# Materialize the documented standalone module boundaries."):
                 facade_source = source
-            elif source.startswith("import platform\n\naliases"):
+            elif "aliases = {" in source and "research_report_vi.md" in source:
                 postprocess_source = source
             elif source.startswith("display(Markdown(f\"### Experiment") or source.startswith(
                 "for figure_name in ["
@@ -89,6 +89,7 @@ def main() -> None:
             "ACTIVE": active, "WORKSPACE": workspace, "CSV_PATH": args.csv.resolve(),
             "CSV_SHA256": hashlib.sha256(args.csv.read_bytes()).hexdigest(),
             "EXECUTION_PROFILE": "SMOKE", "ENV_PYTHON": Path(sys.executable),
+            "CONFIG_PATH": root / "configs/standalone_smoke.yaml",
             "PIPELINE_ENV": environment, "NOTEBOOK_CONFIG": {"significance_level": 0.05},
             "manifest": manifest, "prices": pd.read_parquet(normalized / "prices.parquet"),
             "benchmark": pd.read_parquet(normalized / "benchmark.parquet"),
@@ -106,7 +107,7 @@ def main() -> None:
         for source in display_sources:
             exec(compile(source, "display-cell", "exec"), scope)
         required = [
-            "environment.json", "dataset_hash.json", "data_quality_report.json", "folds.csv",
+            "config_freeze.json", "environment.json", "dataset_hash.json", "data_quality_report.json", "folds.csv",
             "features_summary.csv", "adaptive_universe.csv", "qubo_instances.json",
             "research_report_vi.md", "latest_selected_portfolio.csv", "statistical_tests.csv",
         ]

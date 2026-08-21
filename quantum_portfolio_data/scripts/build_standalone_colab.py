@@ -391,7 +391,8 @@ assert manifest["folds_completed"] == expected_folds
 print("ACTIVE:", ACTIVE)
 print(json.dumps({key: manifest.get(key) for key in ["status", "experiment_id", "folds_requested", "folds_completed", "actual_oos_start", "actual_oos_end", "data_class"]}, indent=2, ensure_ascii=False))'''),
         markdown("## 9. Chuẩn hóa artifact, tạo biểu đồ bổ sung và báo cáo tiếng Việt"),
-        code('''import platform
+        code('''import hashlib
+import platform
 
 aliases = {
     "data_quality.json": "data_quality_report.json",
@@ -414,6 +415,16 @@ environment = {
 }
 (ACTIVE / "environment.json").write_text(json.dumps(environment, indent=2, ensure_ascii=False), encoding="utf-8")
 (ACTIVE / "dataset_hash.json").write_text(json.dumps({"csv_sha256": CSV_SHA256, "csv_path": str(CSV_PATH)}, indent=2), encoding="utf-8")
+config_freeze_path = ACTIVE / "config_freeze.json"
+if not config_freeze_path.exists():
+    config_freeze_path.write_text(json.dumps({
+        "config_sha256": hashlib.sha256(CONFIG_PATH.read_bytes()).hexdigest(),
+        "execution_profile": EXECUTION_PROFILE,
+        "folds_completed": manifest["folds_completed"],
+        "notebook_config": NOTEBOOK_CONFIG,
+        "freeze_scope": "smoke_execution_config_without_final_holdout",
+        "policy": "all_parameters_fixed_before_the_smoke_run; not_a_confirmatory_holdout_freeze",
+    }, indent=2, ensure_ascii=False), encoding="utf-8")
 
 rankings = pd.read_csv(ACTIVE / "rankings.csv")
 comparisons = pd.read_csv(ACTIVE / "comparisons.csv")
