@@ -1,0 +1,9 @@
+config_id,family,candidate_size,portfolio_cardinality,weight_upper,weight_lower,weight_mode,signal_blend,correlation_penalty,stability_weight,covariance_span,covariance_shrinkage,risk_aversion_qubo,risk_aversion_weights,turnover_penalty,volatility_target,transaction_cost_bps,qa_warm_start,market_regime_lookback,minimum_validation_ic
+P_K10P6_CP30_NONE,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,-1.0
+P_K10P6_CP30_IC0,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,0.0
+P_K10P6_CP30_M60,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,60,-1.0
+P_K10P6_CP30_M120,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,120,-1.0
+P_K10P6_CP30_M200,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,200,-1.0
+P_K10P6_CP30_IC0_M120,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,120,0.0
+P_K10P6_CP30_M120_VT15,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.15,25.0,True,120,-1.0
+P_K10P6_CP30_IC0_M120_VT15,common_risk_overlay,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.15,25.0,True,120,0.0

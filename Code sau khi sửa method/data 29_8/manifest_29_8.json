@@ -1,0 +1,35 @@
+{
+  "dataset_id": "data_29_8",
+  "dataset_version": "3.0.0-practical-research",
+  "created_at": "2026-08-29T00:00:00+07:00",
+  "historical_source": "D:\\NCKH 2026 - Thầy Dã\\Code sau khi sửa method\\data sau khi sửa method\\data_sau_khi_sua_method.csv",
+  "historical_source_sha256": "16fde8609090d0bdf342908d8539a901fc3aec1d66bc51aa452ba33dead03ee3",
+  "forward_source": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\outputs\\forward_2026_cafef_120\\outputs\\normalized\\forward_prices_2026.parquet",
+  "forward_source_sha256": "66e1c9f86d238f65208ac771729747afd05476785dae84243e41cf6ca71b6ba2",
+  "csv_filename": "data_29_8.csv",
+  "csv_sha256": "b0a16d9f8c31a2a5d4e1ba8f00d49b50f112f149d4fae23b3529df085a45ccb2",
+  "zip_filename": "data_29_8.zip",
+  "zip_sha256": "0025fd746a9060755f2c05b4cae317bb1f3fa4f517f7308529d0e1d8ab3bca0c",
+  "rows": 179173,
+  "columns": 64,
+  "record_counts": {
+    "BENCHMARK": 1499,
+    "CORPORATE_ACTION": 2653,
+    "METADATA": 1,
+    "PRICE": 174626,
+    "SECURITY": 394
+  },
+  "price_tickers": 120,
+  "price_start": "2020-01-02",
+  "price_end": "2026-08-28",
+  "provisional_forward_rows": 16800,
+  "provisional_forward_tickers": 105,
+  "duplicate_price_ticker_dates": 0,
+  "missing_adjusted_close_price_rows": 0,
+  "research_evidence_label": {
+    "through_2025_12_31": "historical_audited_research_panel",
+    "2026_01_01_through_2026_08_28": "provisional_observed_extension",
+    "future_after_2026_08_29": "prospective_only_if_protocol_remains_frozen"
+  },
+  "live_capital_authorized": false
+}

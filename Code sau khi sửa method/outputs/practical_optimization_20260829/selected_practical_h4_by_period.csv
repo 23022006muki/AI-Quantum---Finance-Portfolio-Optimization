@@ -1,0 +1,4 @@
+sample,observations,mean_daily_difference,paired_t_statistic,paired_t_pvalue_one_sided,block_bootstrap_ci_low,block_bootstrap_ci_high,block_bootstrap_pvalue_one_sided,supported_5pct,evidence_label
+development_2022_2024,604,0.0,,,0.0,0.0,1.0,False,posthoc_method_design_not_confirmatory
+historical_holdout_2024_2025,312,0.000143187489552378,0.962902768329672,0.1681722013116263,-6.709642090488156e-05,0.00038354960096917043,0.08598280343931214,False,posthoc_method_design_not_confirmatory
+observed_2026,160,-3.6194543140933516e-07,-1.0000000000000002,0.8405850294986585,-3.6194543140933516e-07,0.0,1.0,False,posthoc_method_design_not_confirmatory

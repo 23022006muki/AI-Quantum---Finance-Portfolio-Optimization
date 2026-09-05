@@ -1,0 +1,27 @@
+seed: 42
+candidate_size: 8
+portfolio_cardinality: 4
+covariance_span: 60
+transaction_cost_bps: 25
+risk_aversion: 0.55
+weight_risk_aversion: 1.25
+weight_lower: 0.05
+weight_upper: 0.40
+qaoa_depth: 2
+qaoa_parameter_trials: 24
+qaoa_shots: 1024
+qa_restarts: 12
+qa_swap_steps: 120
+adaptive:
+  signal: 0.40
+  liquidity: 0.30
+  risk: 0.15
+  stability: 0.15
+  correlation_penalty: 0.10
+quantum_assisted:
+  signal: 0.40
+  liquidity: 0.30
+  risk: 0.15
+  stability: 0.15
+  correlation_penalty: 0.10
+

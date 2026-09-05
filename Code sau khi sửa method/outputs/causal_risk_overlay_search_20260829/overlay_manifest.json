@@ -1,0 +1,19 @@
+{
+  "status": "causal_overlay_research_search",
+  "base_candidate": "C1_IV_X",
+  "specifications_tested": 420,
+  "formal_selection_sample": "development folds 0-28",
+  "selected_policy": {
+    "spec_id": "OV0029",
+    "market_lookback": 0,
+    "strategy_lookback_folds": 3,
+    "volatility_target": 0.0,
+    "volatility_lookback_days": 60,
+    "minimum_validation_ic": -1.0,
+    "overlay_turnover_cost_bps": 25.0
+  },
+  "selection_after_2026_is_research_only": true,
+  "common_overlay_for_aur_and_qaur": true,
+  "live_capital_authorized": false,
+  "quantum_advantage_claimed": false
+}

@@ -1,0 +1,7 @@
+config_id,family,candidate_size,portfolio_cardinality,weight_upper,weight_lower,weight_mode,signal_blend,correlation_penalty,stability_weight,covariance_span,covariance_shrinkage,risk_aversion_qubo,risk_aversion_weights,turnover_penalty,volatility_target,transaction_cost_bps,qa_warm_start,market_regime_lookback,minimum_validation_ic
+W_K8P4_CP30,warm_started_qaur,8,4,0.3,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,-1.0
+W_K8P4_CP50,warm_started_qaur,8,4,0.3,0.02,normalized_mean_variance,0.7,0.5,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,-1.0
+W_K8P4_CP75,warm_started_qaur,8,4,0.3,0.02,normalized_mean_variance,0.7,0.75,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,-1.0
+W_K10P6_CP30,warm_started_qaur,10,6,0.25,0.02,normalized_mean_variance,0.7,0.3,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,-1.0
+W_K10P6_CP50,warm_started_qaur,10,6,0.25,0.02,normalized_mean_variance,0.7,0.5,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,-1.0
+W_K10P6_CP75,warm_started_qaur,10,6,0.25,0.02,normalized_mean_variance,0.7,0.75,0.0,60,0.2,0.55,2.0,0.15,0.0,25.0,True,0,-1.0

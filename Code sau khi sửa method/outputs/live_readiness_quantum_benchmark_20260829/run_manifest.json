@@ -1,0 +1,10 @@
+{
+  "config_id": "W_K10P6_CP30",
+  "live_capital_gates_passed": 4,
+  "live_capital_gates_total": 9,
+  "quantum_advantage_gates_passed": 0,
+  "quantum_advantage_gates_total": 7,
+  "number_of_configuration_trials_for_dsr": 43,
+  "runtime_seconds": 28.299165899981745,
+  "quantum_advantage_claimed": false
+}

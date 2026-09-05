@@ -1,0 +1,6 @@
+hypothesis,estimate,statistic,pvalue_one_sided,supported_5pct
+H1_QAUR_higher_QUR_objective,0.0,,,False
+H2_QAUR_lower_candidate_correlation,0.0,,,False
+H3_QAUR_turnover_noninferior_margin_2pp,0.0,-inf,0.0,True
+H4_QAUR_higher_mean_daily_return,-1.6898458495276256e-13,-1.9106331819605535,0.9715144517429052,False
+H5_direction_robust_across_QAUR_seeds,0.0,,,False

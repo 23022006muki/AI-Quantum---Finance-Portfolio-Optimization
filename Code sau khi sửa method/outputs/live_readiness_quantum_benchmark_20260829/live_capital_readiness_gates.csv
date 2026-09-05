@@ -1,0 +1,10 @@
+gate,passed,evidence
+positive_holdout_return_both_methods,True,"{'AUR': 0.24812569348228752, 'QAUR': 0.23509557001243464}"
+holdout_sharpe_at_least_1_both_methods,True,"{'AUR': 1.3735020667133202, 'QAUR': 1.3381896934560211}"
+holdout_max_drawdown_no_worse_than_minus_20pct,True,"{'AUR': -0.12444393373487939, 'QAUR': -0.12822776073773023}"
+positive_sharpe_at_75bps,True,"[{'method': 'AUR', 'sharpe_zero_rf': 1.1347037723855122}, {'method': 'QAUR', 'sharpe_zero_rf': 1.0834637589517089}]"
+significant_excess_return_vs_full_EW,False,"[{'method': 'AUR', 'comparator': 'FULL_UNIVERSE_EW', 'observations': 312, 'mean_daily_difference': 1.1888406604930734e-05, 'annualized_arithmetic_difference': 0.0029958784644425447, 'ci_2_5': -0.20646383530215687, 'ci_97_5': 0.20391761230298233, 'pvalue_one_sided_positive': 0.5138}, {'method': 'QAUR', 'comparator': 'FULL_UNIVERSE_EW', 'observations': 312, 'mean_daily_difference': -2.3869163150833868e-05, 'annualized_arithmetic_difference': -0.0060150291140101345, 'ci_2_5': -0.22525532351211505, 'ci_97_5': 0.1809286486030434, 'pvalue_one_sided_positive': 0.5772}]"
+significant_excess_return_vs_VNAllshare,False,"[{'method': 'AUR', 'comparator': 'VNALLSHARE_TRI', 'observations': 312, 'mean_daily_difference': -0.0004074655013331395, 'annualized_arithmetic_difference': -0.10268130633595114, 'ci_2_5': -0.3587094040378448, 'ci_97_5': 0.12571599819520798, 'pvalue_one_sided_positive': 0.7912}, {'method': 'QAUR', 'comparator': 'VNALLSHARE_TRI', 'observations': 312, 'mean_daily_difference': -0.000443223071088904, 'annualized_arithmetic_difference': -0.1116922139144038, 'ci_2_5': -0.3929663443294058, 'ci_97_5': 0.11140847313591232, 'pvalue_one_sided_positive': 0.8294}]"
+deflated_sharpe_probability_at_least_95pct,False,"[{'method': 'AUR', 'deflated_sharpe_probability': 0.9139855722512756}, {'method': 'QAUR', 'deflated_sharpe_probability': 0.9086317954566215}]"
+at_least_24_months_untouched_forward_or_paper_track_record,False,Current temporal holdout is about 15 months and is now observed.
+market_data_current_with_operational_live_pipeline,False,Dataset ends 2025-12-31; no audited 2026 paper-trading feed/order pipeline.

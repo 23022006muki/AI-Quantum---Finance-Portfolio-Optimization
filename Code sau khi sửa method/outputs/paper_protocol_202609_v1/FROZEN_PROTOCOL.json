@@ -1,0 +1,65 @@
+{
+  "status": "FROZEN_PROSPECTIVE_PAPER_ONLY",
+  "frozen_at_local_date": "2026-08-29",
+  "first_test_interval_start": "2026-09-02",
+  "first_test_interval_end_exclusive": "2026-10-02",
+  "decision_time": "2026-08-28",
+  "candidate": {
+    "config_id": "C1_IV_X",
+    "family": "constraint_and_allocation",
+    "candidate_size": 8,
+    "portfolio_cardinality": 4,
+    "weight_upper": 0.3,
+    "weight_lower": 0.05,
+    "weight_mode": "inverse_volatility",
+    "signal_blend": 1.0,
+    "correlation_penalty": 0.1,
+    "stability_weight": 0.15,
+    "covariance_span": 60,
+    "covariance_shrinkage": 0.0,
+    "risk_aversion_qubo": 0.55,
+    "risk_aversion_weights": 1.25,
+    "turnover_penalty": 0.0,
+    "volatility_target": 0.0,
+    "transaction_cost_bps": 25.0,
+    "qa_warm_start": false,
+    "market_regime_lookback": 0,
+    "minimum_validation_ic": -1.0
+  },
+  "candidate_selected_after_observing_jan_jul_2026": true,
+  "august_quasi_holdout_not_counted_as_prospective": true,
+  "no_parameter_retuning_during_paper_window": true,
+  "source_hashes": {
+    "base_dataset_sha256": "16fde8609090d0bdf342908d8539a901fc3aec1d66bc51aa452ba33dead03ee3",
+    "forward_prices_sha256": "66e1c9f86d238f65208ac771729747afd05476785dae84243e41cf6ca71b6ba2",
+    "strategy_script_sha256": "08a73045b19a4d76fc232d4d97b074ca9e7b1b1b3cb425e74a42d9e2640f7562"
+  },
+  "aur_qaur_target_jaccard": 1.0,
+  "transaction_cost_bps": 25.0,
+  "live_capital_authorized": false,
+  "quantum_advantage_claimed": false,
+  "operational_rules": [
+    "rebalance monthly using only information available before the test interval",
+    "record intended and executed prices, commissions, taxes, slippage and rejected orders",
+    "quarantine a ticker when price adjustment or corporate action is unresolved",
+    "do not trade if cross-source price discrepancy exceeds the documented tolerance",
+    "report both AUR and QAUR branches with the same downstream implementation"
+  ],
+  "promotion_gates": {
+    "minimum_prospective_months_for_small_pilot": 12,
+    "minimum_prospective_months_for_full_assessment": 24,
+    "positive_net_return_after_observed_costs": true,
+    "maximum_drawdown_no_worse_than": -0.2,
+    "deflated_sharpe_probability_at_least": 0.95,
+    "significant_excess_pvalue_below": 0.05,
+    "cross_source_and_corporate_action_certification": true,
+    "zero_unexplained_data_or_order_audit_breaks": true
+  },
+  "quantum_advantage_gates": [
+    "run identical QUBO instances on a named physical QPU",
+    "compare against exact, multi-start local search and simulated annealing",
+    "include queue, embedding, sampling and post-processing time",
+    "report objective gap, time-to-solution, feasibility and success probability",
+    "demonstrate statistically reproducible advantage as instance size scales"
+  ]
+}

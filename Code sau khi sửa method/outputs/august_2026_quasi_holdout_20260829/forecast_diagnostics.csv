@@ -1,0 +1,2 @@
+fold,decision_time,validation_rank_ic,validation_rmse,train_rows,universe_size,runtime_seconds
+52,2026-07-31,0.12680190338677955,0.2860750596934544,48419,105,0.5238835000200197

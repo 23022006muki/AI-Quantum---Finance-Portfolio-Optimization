@@ -1,0 +1,32 @@
+{
+  "status": "FROZEN_PROSPECTIVE_PAPER_ONLY_V2",
+  "supersedes": "paper_protocol_202609_v1 before its prospective start",
+  "frozen_at_local_date": "2026-08-29",
+  "first_test_interval_start": "2026-09-02",
+  "base_candidate": "C1_IV_X",
+  "common_risk_overlay": {
+    "name": "trailing_full_universe_market_gate",
+    "lookback_sessions": 30,
+    "risk_on_rule": "compound equal-weight full-universe return over prior 30 sessions > 0",
+    "risk_off_allocation": "100% cash with zero assumed return",
+    "switching_cost_bps": 25.0,
+    "applied_identically_to_AUR_and_QAUR": true
+  },
+  "current_market_growth_30_sessions": -0.011352476251942134,
+  "current_regime": "CASH",
+  "current_risk_multiplier": 0.0,
+  "parameters_retuned_during_future_paper_window": false,
+  "hashes": {
+    "base_dataset_sha256": "16fde8609090d0bdf342908d8539a901fc3aec1d66bc51aa452ba33dead03ee3",
+    "forward_prices_sha256": "66e1c9f86d238f65208ac771729747afd05476785dae84243e41cf6ca71b6ba2",
+    "v1_targets_sha256": "69f466921273eb2147d046685dcc7c145788cdbccc9d8676a26d9befcfc79cc5",
+    "strategy_script_sha256": "08a73045b19a4d76fc232d4d97b074ca9e7b1b1b3cb425e74a42d9e2640f7562",
+    "overlay_script_sha256": "4eed481e6cf95d0cbe3e9136a2bd248923c66710afb40da2c7c158a5adc84a30"
+  },
+  "evidence_labels": {
+    "historical_and_2026_overlay_results": "posthoc method-design evidence",
+    "september_2026_onward": "prospective paper evidence if protocol remains unchanged"
+  },
+  "live_capital_authorized": false,
+  "quantum_advantage_claimed": false
+}

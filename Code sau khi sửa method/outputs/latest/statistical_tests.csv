@@ -1,0 +1,2 @@
+comparison,n,mean_daily_difference,paired_t_pvalue,wilcoxon_pvalue
+QAUR_minus_AUR,255,-1.136505809942734e-06,0.9950588792322436,0.8603453980552309

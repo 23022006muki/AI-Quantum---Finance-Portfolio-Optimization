@@ -1,0 +1,3 @@
+config_id,fold,method,reduction_objective,candidate_mean_abs_correlation,candidate_turnover,portfolio_turnover,risk_on,candidate_jaccard
+C1_IV_X,53,AUR,5.8665548608529265,0.09187666534164217,0.375,0.8101199743403377,True,1.0
+C1_IV_X,53,QAUR,5.8665548608529265,0.09187666534164217,0.375,0.8101199743403377,True,1.0

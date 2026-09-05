@@ -1,0 +1,8 @@
+gate,passed
+forward_return_positive_both,False
+forward_sharpe_above_1_both,False
+forward_drawdown_below_20pct,True
+forward_DSR_probability_above_95pct,False
+significant_forward_excess_vs_full_EW,False
+minimum_24_month_forward_record,False
+cross_source_and_corporate_action_certified,False

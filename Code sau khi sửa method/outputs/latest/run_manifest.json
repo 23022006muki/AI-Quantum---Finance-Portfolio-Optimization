@@ -1,0 +1,6 @@
+{
+  "framework": "AUR_vs_QAUR_shared_XY_QAOA",
+  "folds": 12,
+  "forecast_source": "D:\\NCKH 2026 - Th\u1ea7y D\u00e3\\quantum_portfolio_data\\outputs\\experiments\\20260813T164535-21c9b569ce",
+  "qa_backend_disclosure": "classical surrogate for quantum-ready QUBO"
+}

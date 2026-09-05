@@ -1,0 +1,2 @@
+method,observations,cumulative_return,annualized_return,annualized_volatility,sharpe_zero_rf,sortino_zero_rf,maximum_drawdown
+FULL_UNIVERSE_EW,20,0.0053417969934961285,0.06943183332083191,0.08013705067412714,0.8664136343521376,2.044542419665976,-0.015688703789256686

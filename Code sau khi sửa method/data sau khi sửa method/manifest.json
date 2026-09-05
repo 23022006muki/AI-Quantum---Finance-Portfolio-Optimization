@@ -1,0 +1,28 @@
+{
+  "dataset_id": "data_sau_khi_sua_method",
+  "dataset_version": "2.0.0-aur-qaur",
+  "created_at": "2026-08-28T00:00:00+07:00",
+  "methodology": "AUR_vs_QAUR_with_shared_downstream_XYQAOA",
+  "source_dataset": "D:\\NCKH 2026 - Thầy Dã\\quantum_portfolio_data\\colab_data\\ai_quantum_complete_dataset.csv",
+  "source_sha256": "aea9644cfafc359ed04546deca62fea83509826864463669b219f370f1433eba",
+  "csv_filename": "data_sau_khi_sua_method.csv",
+  "csv_sha256": "16fde8609090d0bdf342908d8539a901fc3aec1d66bc51aa452ba33dead03ee3",
+  "zip_filename": "data_sau_khi_sua_method.zip",
+  "zip_sha256": "c374f49211e75fd25056d0845e88c62f1f87abc16aa2e43dfcc4cb3c9cb4cfcf",
+  "rows": 162373,
+  "columns": 64,
+  "record_counts": {
+    "PRICE": 157826,
+    "CORPORATE_ACTION": 2653,
+    "BENCHMARK": 1499,
+    "SECURITY": 394,
+    "METADATA": 1
+  },
+  "price_tickers": 120,
+  "price_start": "2020-01-02",
+  "price_end": "2025-12-31",
+  "duplicate_price_ticker_dates": 0,
+  "missing_adjusted_close_price_rows": 0,
+  "zip_contract": "ZIP contains exactly one CSV for direct Colab upload",
+  "data_change_scope": "metadata versioning only; market observations are unchanged"
+}

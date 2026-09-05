@@ -1,0 +1,39 @@
+{
+  "status": "quasi_holdout_not_prospective",
+  "candidate_frozen_before_scoring": {
+    "config_id": "C1_IV_X",
+    "family": "constraint_and_allocation",
+    "candidate_size": 8,
+    "portfolio_cardinality": 4,
+    "weight_upper": 0.3,
+    "weight_lower": 0.05,
+    "weight_mode": "inverse_volatility",
+    "signal_blend": 1.0,
+    "correlation_penalty": 0.1,
+    "stability_weight": 0.15,
+    "covariance_span": 60,
+    "covariance_shrinkage": 0.0,
+    "risk_aversion_qubo": 0.55,
+    "risk_aversion_weights": 1.25,
+    "turnover_penalty": 0.0,
+    "volatility_target": 0.0,
+    "transaction_cost_bps": 25.0,
+    "qa_warm_start": false,
+    "market_regime_lookback": 0,
+    "minimum_validation_ic": -1.0
+  },
+  "candidate_selection_cutoff": "2026-07-31",
+  "partial_fold": {
+    "fold": "52",
+    "train_start": "2024-05-02 00:00:00",
+    "train_end": "2026-05-02 00:00:00",
+    "validation_start": "2026-05-02 00:00:00",
+    "validation_end": "2026-08-02 00:00:00",
+    "test_start": "2026-08-02 00:00:00",
+    "test_end": "2026-09-02 00:00:00"
+  },
+  "observed_test_end": "2026-08-28",
+  "sessions": 20,
+  "parameters_retuned_on_august": false,
+  "live_capital_authorized": false
+}

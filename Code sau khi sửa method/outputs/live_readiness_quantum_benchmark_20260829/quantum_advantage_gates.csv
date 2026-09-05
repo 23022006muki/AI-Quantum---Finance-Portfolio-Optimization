@@ -1,0 +1,8 @@
+gate,passed,evidence
+executed_on_physical_QPU,False,All XY-QAOA results are ideal statevector simulations.
+matched_best_classical_baselines,False,Exact enumeration and simulated annealing included; commercial/state-of-the-art solvers and tuned HPC baselines still missing.
+better_solution_quality_than_best_classical,False,Exact classical gap is zero by definition; mean statevector observed gap=0.
+lower_end_to_end_wall_clock_than_best_classical,False,Mean XY-QAOA simulator runtime=0.152054s; mean exact/heuristic runtime=0.085816s.
+scaling_crossover_demonstrated,False,Statevector tested only through n=12; no QPU scaling crossover.
+hardware_noise_and_repeated_run_statistics,False,"No hardware calibration, queue, shot-noise or error-mitigation study."
+independent_reproducibility,False,No independent QPU reproduction.

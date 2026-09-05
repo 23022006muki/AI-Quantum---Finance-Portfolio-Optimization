@@ -1,0 +1,15 @@
+{
+  "status": "posthoc_diagnostic_only",
+  "forward_fold_ids": [
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+  ],
+  "number_of_preexisting_configurations": 43,
+  "selection_after_observing_2026_is_not_forward_evidence": true,
+  "purpose": "diagnose constraint, allocation and signal failure"
+}
