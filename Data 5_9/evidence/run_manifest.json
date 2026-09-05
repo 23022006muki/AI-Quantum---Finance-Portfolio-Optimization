@@ -1,0 +1,52 @@
+{
+  "dataset": "data_29_8.csv",
+  "dataset_sha256": "b0a16d9f8c31a2a5d4e1ba8f00d49b50f112f149d4fae23b3529df085a45ccb2",
+  "observed_price_end": "2026-08-28",
+  "confirmatory_fold_split": {
+    "development": "0-28",
+    "holdout": "29-43"
+  },
+  "confirmatory_configurations_screened": 43,
+  "confirmatory_best_config": "P_K10P6_CP30_NONE",
+  "practical_evidence_label": "posthoc_method_design_using_data_observed_by_2026_08_29",
+  "practical_configurations_screened": 24,
+  "market_gate_lookbacks_screened": [
+    0,
+    20,
+    30,
+    40
+  ],
+  "practical_best_config": {
+    "config_id": "C1_IV_X",
+    "family": "constraint_and_allocation",
+    "candidate_size": 8,
+    "portfolio_cardinality": 4,
+    "weight_upper": 0.3,
+    "weight_lower": 0.05,
+    "weight_mode": "inverse_volatility",
+    "signal_blend": 1.0,
+    "correlation_penalty": 0.1,
+    "stability_weight": 0.15,
+    "covariance_span": 60,
+    "covariance_shrinkage": 0.0,
+    "risk_aversion_qubo": 0.55,
+    "risk_aversion_weights": 1.25,
+    "turnover_penalty": 0.0,
+    "volatility_target": 0.0,
+    "transaction_cost_bps": 25.0,
+    "qa_warm_start": false,
+    "market_regime_lookback": 0,
+    "minimum_validation_ic": -1.0
+  },
+  "practical_best_market_gate_lookback": 30,
+  "practical_selection_rule": "positive return in all 3 periods x 2 reducers; MDD >= -20%; maximize worst Sharpe",
+  "prospective_protocol_start": "2026-09-02",
+  "current_market_growth": -0.011352476251942245,
+  "current_exposure": 0.0,
+  "live_capital_authorized": false,
+  "quantum_advantage_claimed": false,
+  "qa_backend": "classical cardinality-preserving surrogate for quantum-ready QUBO",
+  "shared_downstream_screening": "exact fixed-cardinality QUBO reference",
+  "xy_qaoa_holdout_audit_instances": 30,
+  "xy_qaoa_mean_feasibility_rate": 1.0
+}

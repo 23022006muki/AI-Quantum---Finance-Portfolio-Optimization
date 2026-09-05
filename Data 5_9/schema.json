@@ -1,0 +1,275 @@
+{
+  "columns": [
+    {
+      "name": "record_type",
+      "dtype": "object"
+    },
+    {
+      "name": "dataset_id",
+      "dtype": "object"
+    },
+    {
+      "name": "dataset_version",
+      "dtype": "object"
+    },
+    {
+      "name": "created_at",
+      "dtype": "object"
+    },
+    {
+      "name": "intended_config",
+      "dtype": "object"
+    },
+    {
+      "name": "research_scope",
+      "dtype": "object"
+    },
+    {
+      "name": "price_rows",
+      "dtype": "float64"
+    },
+    {
+      "name": "runtime_tickers",
+      "dtype": "float64"
+    },
+    {
+      "name": "full_master_tickers",
+      "dtype": "float64"
+    },
+    {
+      "name": "benchmark_rows",
+      "dtype": "float64"
+    },
+    {
+      "name": "corporate_action_rows",
+      "dtype": "float64"
+    },
+    {
+      "name": "date",
+      "dtype": "object"
+    },
+    {
+      "name": "ticker",
+      "dtype": "object"
+    },
+    {
+      "name": "security_id",
+      "dtype": "object"
+    },
+    {
+      "name": "open",
+      "dtype": "float64"
+    },
+    {
+      "name": "high",
+      "dtype": "float64"
+    },
+    {
+      "name": "low",
+      "dtype": "float64"
+    },
+    {
+      "name": "close",
+      "dtype": "float64"
+    },
+    {
+      "name": "adjusted_close",
+      "dtype": "float64"
+    },
+    {
+      "name": "volume",
+      "dtype": "float64"
+    },
+    {
+      "name": "trading_value",
+      "dtype": "float64"
+    },
+    {
+      "name": "source",
+      "dtype": "object"
+    },
+    {
+      "name": "source_url",
+      "dtype": "object"
+    },
+    {
+      "name": "fetched_at",
+      "dtype": "object"
+    },
+    {
+      "name": "available_at",
+      "dtype": "object"
+    },
+    {
+      "name": "raw_checksum",
+      "dtype": "object"
+    },
+    {
+      "name": "parser_version",
+      "dtype": "object"
+    },
+    {
+      "name": "data_class",
+      "dtype": "object"
+    },
+    {
+      "name": "adjustment_policy",
+      "dtype": "object"
+    },
+    {
+      "name": "benchmark",
+      "dtype": "object"
+    },
+    {
+      "name": "total_return_index",
+      "dtype": "float64"
+    },
+    {
+      "name": "index_type",
+      "dtype": "object"
+    },
+    {
+      "name": "methodology_url",
+      "dtype": "object"
+    },
+    {
+      "name": "company_name",
+      "dtype": "object"
+    },
+    {
+      "name": "exchange",
+      "dtype": "object"
+    },
+    {
+      "name": "isin",
+      "dtype": "object"
+    },
+    {
+      "name": "figi",
+      "dtype": "object"
+    },
+    {
+      "name": "hose_security_id",
+      "dtype": "float64"
+    },
+    {
+      "name": "listing_date",
+      "dtype": "object"
+    },
+    {
+      "name": "delisting_date",
+      "dtype": "object"
+    },
+    {
+      "name": "effective_from",
+      "dtype": "object"
+    },
+    {
+      "name": "effective_to",
+      "dtype": "object"
+    },
+    {
+      "name": "history_method",
+      "dtype": "object"
+    },
+    {
+      "name": "runtime_eligible",
+      "dtype": "object"
+    },
+    {
+      "name": "research_eligibility_status",
+      "dtype": "object"
+    },
+    {
+      "name": "event_type",
+      "dtype": "object"
+    },
+    {
+      "name": "announcement_date",
+      "dtype": "object"
+    },
+    {
+      "name": "record_date",
+      "dtype": "object"
+    },
+    {
+      "name": "ex_date",
+      "dtype": "object"
+    },
+    {
+      "name": "effective_date",
+      "dtype": "object"
+    },
+    {
+      "name": "payment_date",
+      "dtype": "object"
+    },
+    {
+      "name": "cash_dividend_per_share",
+      "dtype": "float64"
+    },
+    {
+      "name": "stock_dividend_ratio",
+      "dtype": "float64"
+    },
+    {
+      "name": "bonus_share_ratio",
+      "dtype": "float64"
+    },
+    {
+      "name": "split_ratio",
+      "dtype": "float64"
+    },
+    {
+      "name": "reverse_split_ratio",
+      "dtype": "float64"
+    },
+    {
+      "name": "rights_ratio",
+      "dtype": "float64"
+    },
+    {
+      "name": "rights_subscription_price",
+      "dtype": "float64"
+    },
+    {
+      "name": "adjustment_factor",
+      "dtype": "float64"
+    },
+    {
+      "name": "currency",
+      "dtype": "object"
+    },
+    {
+      "name": "corroboration_source",
+      "dtype": "object"
+    },
+    {
+      "name": "corroboration_url",
+      "dtype": "object"
+    },
+    {
+      "name": "verification_status",
+      "dtype": "object"
+    },
+    {
+      "name": "verification_notes",
+      "dtype": "object"
+    }
+  ],
+  "required_by_colab": [
+    "record_type",
+    "date",
+    "ticker",
+    "adjusted_close",
+    "volume",
+    "trading_value"
+  ],
+  "record_types": [
+    "BENCHMARK",
+    "CORPORATE_ACTION",
+    "METADATA",
+    "PRICE",
+    "SECURITY"
+  ]
+}

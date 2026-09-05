@@ -1,0 +1,6 @@
+hypothesis,estimate,statistic,pvalue_one_sided,supported_5pct,holm_adjusted_pvalue,supported_holm_5pct,evidence_label
+H1_QAUR_higher_QUR_objective,0.060277684127806305,5.088779330113447,8.2535795589242e-05,True,0.000247607386767726,True,confirmatory_untouched_historical_holdout
+H2_QAUR_lower_candidate_correlation,-0.012363662316747548,-6.906410142450769,3.624812682167425e-06,True,1.44992507286697e-05,True,confirmatory_untouched_historical_holdout
+H3_QAUR_turnover_noninferior_margin_2pp,-0.060000000000000005,-2.3864021568539724,0.015841447044325538,True,0.031682894088651076,True,confirmatory_untouched_historical_holdout
+H4_QAUR_higher_mean_daily_return,-3.575757319464191e-05,-0.17074190396785263,0.5677311302819281,False,0.5677311302819281,False,confirmatory_untouched_historical_holdout
+H5_QAUR_financial_direction_robust_across_seeds,0.0,,,False,,False,confirmatory_untouched_historical_holdout
